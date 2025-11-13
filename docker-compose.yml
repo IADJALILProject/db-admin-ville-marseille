@@ -1,0 +1,75 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: dbm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: "mairie"
+      POSTGRES_USER: "db_admin"
+      POSTGRES_PASSWORD: "CHANGE_ME"
+      TZ: "Europe/Paris"
+    ports:
+      - "15432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U db_admin -d mairie"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mysql:
+    image: mysql:8.0
+    container_name: dbm-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: "root_password"
+      MYSQL_DATABASE: "mairie_mysql"
+      MYSQL_USER: "db_admin"
+      MYSQL_PASSWORD: "CHANGE_ME"
+      TZ: "Europe/Paris"
+    ports:
+      - "3306:3306"
+    command:
+      - "--character-set-server=utf8mb4"
+      - "--collation-server=utf8mb4_unicode_ci"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u db_admin -pCHANGE_ME || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: dbm-mssql
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "Strong_Password123!"
+      MSSQL_PID: "Developer"
+      TZ: "Europe/Paris"
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql_data:/var/opt/mssql
+      - ./data:/app/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P Strong_Password123! -Q \"SELECT 1\"",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+volumes:
+  postgres_data:
+  mysql_data:
+  mssql_data:

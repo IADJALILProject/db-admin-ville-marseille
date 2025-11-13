@@ -1,0 +1,23 @@
+connection:
+  host: "localhost"
+  port: 3306
+  database: "mairie_mysql"
+  user: "db_admin"
+  password: "CHANGE_ME"
+
+backup:
+  enabled: true
+  tool: "mysqldump"
+  extra_args:
+    - "--routines"
+    - "--single-transaction"
+
+maintenance:
+  analyze_tables: true
+  optimize_tables: true
+
+schemas:
+  default_schema: "mairie"
+
+data_load:
+  enabled: false

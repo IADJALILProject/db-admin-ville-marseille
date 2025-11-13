@@ -1,0 +1,31 @@
+# ansible/roles/postgres/tasks/main.yml
+
+- name: Install PostgreSQL packages
+  package:
+    name: "{{ packages_postgres }}"
+    state: present
+  notify: restart postgresql
+
+- name: Ensure PostgreSQL service is enabled and started
+  service:
+    name: postgresql
+    state: started
+    enabled: yes
+
+- name: Deploy postgresql.conf
+  template:
+    src: postgresql.conf.j2
+    dest: "{{ db_conf_dir }}/postgresql.conf"
+    owner: postgres
+    group: postgres
+    mode: "0644"
+  notify: restart postgresql
+
+- name: Deploy pg_hba.conf
+  template:
+    src: pg_hba.conf.j2
+    dest: "{{ db_conf_dir }}/pg_hba.conf"
+    owner: postgres
+    group: postgres
+    mode: "0640"
+  notify: restart postgresql

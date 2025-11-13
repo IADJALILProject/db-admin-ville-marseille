@@ -1,0 +1,34 @@
+connection:
+  host: "localhost"
+  port: 15432
+  database: "mairie"
+  user: "db_admin"
+  password: "CHANGE_ME"
+
+backup:
+  enabled: true
+  tool: "pg_dump"
+  format: "custom"
+  extra_args:
+    - "--no-owner"
+    - "--no-privileges"
+
+maintenance:
+  auto_analyze: true
+  auto_vacuum: true
+  analyze_script: "db/postgres/maintenance/20_analyze_vacuum.sql"
+  index_report_script: "db/postgres/maintenance/21_index_usage_report.sql"
+
+schemas:
+  referentiel: "referentiel"
+  metier: "metier"
+  reporting: "reporting"
+
+security:
+  roles_script: "db/postgres/security/30_create_roles_and_users.sql"
+  grants_script: "db/postgres/security/31_grant_privileges_by_app.sql"
+  rls_script: "db/postgres/security/32_row_level_security_citoyens.sql"
+
+data_load:
+  seed_referentiel_script: "db/postgres/dml/10_seed_referentiel.sql"
+  seed_demo_script: "db/postgres/dml/11_insert_demo_from_csv.sql"

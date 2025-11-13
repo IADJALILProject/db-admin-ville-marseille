@@ -1,0 +1,10 @@
+---
+- hosts: db_servers
+  become: yes
+  roles:
+    - role: common
+    - role: postgres
+  tasks:
+    - import_playbook: ../playbooks/install_postgres.yml
+    - import_playbook: ../playbooks/deploy_db_admin_scripts.yml
+    - import_playbook: ../playbooks/hardening_db_servers.yml

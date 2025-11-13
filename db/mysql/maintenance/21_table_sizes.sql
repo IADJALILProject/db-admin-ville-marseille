@@ -1,0 +1,15 @@
+-- mysql/maintenance/21_table_sizes.sql
+
+USE mairie_mysql;
+
+SELECT
+    TABLE_SCHEMA,
+    TABLE_NAME,
+    TABLE_ROWS,
+    DATA_LENGTH,
+    INDEX_LENGTH,
+    DATA_LENGTH + INDEX_LENGTH AS TOTAL_BYTES,
+    ROUND((DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024, 2) AS TOTAL_MB
+FROM information_schema.TABLES
+WHERE TABLE_SCHEMA = 'mairie_mysql'
+ORDER BY TOTAL_BYTES DESC;

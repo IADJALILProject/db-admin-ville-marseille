@@ -1,0 +1,30 @@
+# ansible/roles/common/tasks/main.yml
+
+- name: Install common packages
+  package:
+    name: "{{ packages_common }}"
+    state: present
+
+- name: Ensure backup directory exists
+  file:
+    path: "{{ db_backup_dir }}"
+    state: directory
+    owner: "{{ db_admin_user }}"
+    group: "{{ db_admin_group | default(db_admin_user) }}"
+    mode: "0750"
+
+- name: Ensure admin scripts directory exists
+  file:
+    path: "{{ db_admin_scripts_dir }}"
+    state: directory
+    owner: "{{ db_admin_user }}"
+    group: "{{ db_admin_group | default(db_admin_user) }}"
+    mode: "0750"
+
+- name: Ensure repo root directory exists
+  file:
+    path: "{{ db_admin_repo_root }}"
+    state: directory
+    owner: "{{ db_admin_user }}"
+    group: "{{ db_admin_group | default(db_admin_user) }}"
+    mode: "0755"

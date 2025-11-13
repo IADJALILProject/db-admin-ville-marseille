@@ -1,0 +1,150 @@
+{
+  "id": null,
+  "title": "Vue globale bases de données – Ville de Marseille",
+  "uid": "global-bdd-marseille",
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "1m",
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Disponibilité globale BDD",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "targets": [],
+      "options": {
+        "reduceOptions": { "calcs": ["last"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": 0 },
+              { "color": "orange", "value": 98 },
+              { "color": "green", "value": 99.5 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Instances surveillées",
+      "gridPos": { "h": 4, "w": 4, "x": 6, "y": 0 },
+      "targets": [],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": { "calcs": ["last"], "fields": "", "values": false }
+      }
+    },
+    {
+      "id": 3,
+      "type": "graph",
+      "title": "Sessions actives par instance",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "targets": [],
+      "lines": true,
+      "linewidth": 1,
+      "fill": 1,
+      "nullPointMode": "null as zero",
+      "legend": { "show": true },
+      "xaxis": { "mode": "time", "show": true },
+      "yaxes": [
+        { "show": true, "label": "Sessions", "format": "short" },
+        { "show": false }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "graph",
+      "title": "Temps de réponse moyens (requêtes clés)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "targets": [],
+      "lines": true,
+      "linewidth": 1,
+      "fill": 1,
+      "nullPointMode": "null as zero",
+      "legend": { "show": true },
+      "xaxis": { "mode": "time", "show": true },
+      "yaxes": [
+        { "show": true, "label": "ms", "format": "ms" },
+        { "show": false }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "Top 10 bases par taille",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "targets": [],
+      "options": {
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "Dernières sauvegardes",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "targets": [],
+      "options": {
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "type": "graph",
+      "title": "Volume quotidien de demandes (RDV, état civil, urbanisme)",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 20 },
+      "targets": [],
+      "lines": true,
+      "linewidth": 1,
+      "fill": 1,
+      "stack": true,
+      "nullPointMode": "null as zero",
+      "legend": { "show": true },
+      "xaxis": { "mode": "time", "show": true },
+      "yaxes": [
+        { "show": true, "label": "Nombre de demandes", "format": "short" },
+        { "show": false }
+      ]
+    }
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  }
+}

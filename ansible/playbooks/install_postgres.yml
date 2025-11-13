@@ -1,0 +1,65 @@
+- name: Install and configure PostgreSQL
+  hosts: db_servers
+  become: true
+  vars:
+    apt_cache_valid_time: 3600
+  tasks:
+    - name: Update APT cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: "{{ apt_cache_valid_time }}"
+
+    - name: Install common packages
+      ansible.builtin.apt:
+        name: "{{ packages_common }}"
+        state: present
+
+    - name: Install PostgreSQL packages
+      ansible.builtin.apt:
+        name: "{{ packages_postgres }}"
+        state: present
+
+    - name: Ensure directories exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ db_admin_user }}"
+        group: "{{ db_admin_group }}"
+        mode: "0750"
+      loop:
+        - "{{ db_backup_dir }}"
+        - "{{ db_admin_scripts_dir }}"
+        - "{{ db_admin_repo_root }}"
+
+    - name: Configure postgresql.conf (listen_addresses)
+      ansible.builtin.lineinfile:
+        path: "{{ db_conf_dir }}/postgresql.conf"
+        regexp: '^#?\s*listen_addresses\s*='
+        line: "listen_addresses = '{{ db_listen_address }}'"
+        backup: true
+      notify: Restart PostgreSQL
+
+    - name: Allow subnet in pg_hba.conf (scram)
+      ansible.builtin.blockinfile:
+        path: "{{ db_conf_dir }}/pg_hba.conf"
+        marker: "# {mark} ANSIBLE-MARSEILLE"
+        block: |
+          host    all             all             {{ db_allowed_subnet }}         scram-sha-256
+      notify: Reload PostgreSQL
+
+    - name: Ensure service enabled & started
+      ansible.builtin.service:
+        name: postgresql
+        state: started
+        enabled: true
+
+  handlers:
+    - name: Reload PostgreSQL
+      ansible.builtin.service:
+        name: postgresql
+        state: reloaded
+
+    - name: Restart PostgreSQL
+      ansible.builtin.service:
+        name: postgresql
+        state: restarted

@@ -1,0 +1,104 @@
+- name: Deploy db-admin repo and run migrations
+  hosts: db_servers
+  gather_facts: true
+  become: "{{ ansible_connection != 'local' }}"
+
+  vars:
+    # Connexion DB (défauts compatibles docker-compose local)
+    db_name: "{{ db_name | default('mairie') }}"
+    db_admin_user: "{{ db_admin_user | default('db_admin') }}"
+    db_host: "{{ db_host | default('localhost') }}"
+    db_port: "{{ db_port | default(15432) }}"
+    pg_password: "{{ pg_password | default('CHANGE_ME') }}"
+
+    # Chemins repo
+    repo_src_local: "{{ playbook_dir }}/../../"
+    repo_dst_remote: >-
+      {{ db_admin_repo_root
+         | default((ansible_connection == 'local') | ternary(repo_src_local, '/opt/db_admin/repo')) }}
+
+    # Commande psql (évite toute récursion)
+    psql_cmd: "{{ (psql_bin is defined) | ternary(psql_bin, 'psql') }}"
+
+  tasks:
+    - name: Show target repo path
+      ansible.builtin.debug:
+        msg: "repo_dst_remote={{ repo_dst_remote }} (connection={{ ansible_connection }})"
+
+    - name: Ensure rsync is present (only when NOT local)
+      ansible.builtin.package:
+        name: rsync
+        state: present
+      when: ansible_connection != 'local'
+
+    - name: Synchronize repo to remote (skip on local)
+      ansible.posix.synchronize:
+        src: "{{ repo_src_local }}/"
+        dest: "{{ repo_dst_remote }}/"
+        archive: true
+        delete: false
+        rsync_opts:
+          - "--exclude=.git"
+          - "--exclude=.venv"
+          - "--exclude=__pycache__"
+          - "--exclude=backups"
+          - "--exclude=*.dump"
+      when: ansible_connection != 'local'
+
+    - name: Set ownership on remote repo (skip on local)
+      ansible.builtin.file:
+        path: "{{ repo_dst_remote }}"
+        state: directory
+        owner: "{{ db_admin_user }}"
+        group: "{{ db_admin_user }}"
+        recurse: true
+        mode: "0755"
+      when: ansible_connection != 'local'
+
+    - name: Ensure DB exists (createdb if missing)
+      environment:
+        PGPASSWORD: "{{ pg_password }}"
+      ansible.builtin.shell: |
+        set -e
+        if ! {{ psql_cmd }} -h {{ db_host }} -p {{ db_port }} -At -v ON_ERROR_STOP=1 --quiet \
+             -U {{ db_admin_user }} -d postgres \
+             -c "SELECT 1 FROM pg_database WHERE datname='{{ db_name }}'" | grep -q 1; then
+          createdb -h {{ db_host }} -p {{ db_port }} -U {{ db_admin_user }} {{ db_name }}
+        fi
+      args: { executable: /bin/bash }
+
+    - name: Run DDL files (ordered)
+      environment:
+        PGPASSWORD: "{{ pg_password }}"
+      ansible.builtin.shell: |
+        set -e
+        for f in $(ls -1 "{{ repo_dst_remote }}/db/postgres/ddl/"*.sql 2>/dev/null | sort); do
+          echo ">> DDL $f"
+          {{ psql_cmd }} -h {{ db_host }} -p {{ db_port }} -v ON_ERROR_STOP=1 --quiet \
+            -U {{ db_admin_user }} -d {{ db_name }} -f "$f"
+        done
+      args: { executable: /bin/bash }
+      register: ddl_exec
+      changed_when: "'>> DDL' in (ddl_exec.stdout | default(''))"
+
+    - name: Run DML files (ordered)
+      environment:
+        PGPASSWORD: "{{ pg_password }}"
+      ansible.builtin.shell: |
+        set -e
+        for f in $(ls -1 "{{ repo_dst_remote }}/db/postgres/dml/"*.sql 2>/dev/null | sort); do
+          echo ">> DML $f"
+          {{ psql_cmd }} -h {{ db_host }} -p {{ db_port }} -v ON_ERROR_STOP=1 --quiet \
+            -U {{ db_admin_user }} -d {{ db_name }} -f "$f"
+        done
+      args: { executable: /bin/bash }
+      register: dml_exec
+      changed_when: "'>> DML' in (dml_exec.stdout | default(''))"
+
+    - name: DDL summary
+      ansible.builtin.debug:
+        msg: "{{ ddl_exec.stdout_lines | default([]) }}"
+
+    - name: DML summary
+      ansible.builtin.debug:
+        msg: "{{ dml_exec.stdout_lines | default([]) }}"

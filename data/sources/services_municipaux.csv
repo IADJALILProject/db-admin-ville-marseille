@@ -1,0 +1,17 @@
+service_id,code_service,nom_service,type_service,arrondissement,email_contact,telephone_contact
+1,ETAT_CIVIL,Etat civil,Etat civil,6e,etat_civil_06@ville-marseille.fr,0709652612
+2,URBANISME,Urbanisme,Urbanisme,13e,urbanisme_13@ville-marseille.fr,0794810011
+3,PETITE_ENFANCE,Petite enfance,Famille,7e,petite_enfance_07@ville-marseille.fr,0601679655
+4,SCOLARITE,Scolarité,Education,13e,scolarite_13@ville-marseille.fr,0732383684
+5,SCOLARITE,Scolarité,Education,4e,scolarite_04@ville-marseille.fr,0734462280
+6,SCOLARITE,Scolarité,Education,16e,scolarite_16@ville-marseille.fr,0790538905
+7,SPORT,Sports,Sports,12e,sport_12@ville-marseille.fr,0694281683
+8,SPORT,Sports,Sports,13e,sport_13@ville-marseille.fr,0657721087
+9,SPORT,Sports,Sports,6e,sport_06@ville-marseille.fr,0741059157
+10,CITOYENNETE,Citoyenneté,Vie citoyenne,3e,citoyennete_03@ville-marseille.fr,0755184955
+11,CITOYENNETE,Citoyenneté,Vie citoyenne,6e,citoyennete_06@ville-marseille.fr,0743522173
+12,CITOYENNETE,Citoyenneté,Vie citoyenne,5e,citoyennete_05@ville-marseille.fr,0724872980
+13,SOCIAL,Action sociale,Social,6e,social_06@ville-marseille.fr,0629172651
+14,SOCIAL,Action sociale,Social,8e,social_08@ville-marseille.fr,0720457813
+15,SOCIAL,Action sociale,Social,4e,social_04@ville-marseille.fr,0756253030
+16,MAIRIE_ANNEXE,Mairie de secteur,Accueil,9e,mairie_annexe_09@ville-marseille.fr,0630011314

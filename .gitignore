@@ -1,0 +1,48 @@
+
+```gitignore
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.sqlite3
+*.log
+*.tmp
+*.swp
+*.bak
+*.egg-info/
+.eggs/
+.env
+.venv
+venv/
+env/
+pip-wheel-metadata/
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+.pyre/
+
+# IDE / éditeurs
+.idea/
+.vscode/
+*.code-workspace
+
+# Systèmes
+.DS_Store
+Thumbs.db
+
+# Logs applicatifs
+logs/
+monitoring/status/*.json
+monitoring/metrics/*.csv
+monitoring/reports/*.md
+security/audit_results/*.csv
+
+# Sauvegardes
+backups/postgres/*.dump
+backups/mysql/*
+backups/mssql/*
+
+# Données générées
+data/generated/*
+.venv/

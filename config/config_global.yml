@@ -1,0 +1,46 @@
+environment: "local"
+
+timezone: "Europe/Paris"
+
+backup:
+  base_dir: "./backups"
+
+  postgres:
+    enabled: true
+    dir: "./backups/postgres"
+    retention_days: 14
+    full_backup_time: "02:00"
+
+  mysql:
+    enabled: true
+    dir: "./backups/mysql"
+    retention_days: 7
+    full_backup_time: "02:30"
+
+  mssql:
+    enabled: true
+    dir: "./backups/mssql"
+    retention_days: 7
+    full_backup_time: "03:00"
+
+monitoring:
+  metrics_http_server:
+    host: "0.0.0.0"
+    port: 9100
+  kpi_refresh_minutes: 15
+
+scheduler:
+  health_check_interval_minutes: 10
+  perf_collect_interval_minutes: 15
+  backup_check_interval_minutes: 30
+  security_audit_interval_hours: 24
+
+alerts:
+  enable_email: true
+  smtp_host: "smtp.example.com"
+  smtp_port: 587
+  use_tls: true
+  from_address: "db-admin@ville-marseille.fr"
+  to_addresses:
+    - "dba@ville-marseille.fr"
+  min_severity: "WARNING"

@@ -1,0 +1,56 @@
+- name: Basic PostgreSQL hardening and backups
+  hosts: db_servers
+  become: true
+  tasks:
+    - name: Enforce secure local auth and logging
+      ansible.builtin.blockinfile:
+        path: "{{ db_conf_dir }}/postgresql.conf"
+        marker: "# {mark} ANSIBLE-LOGGING"
+        block: |
+          logging_collector = on
+          log_line_prefix = '%m [%p] %u@%d '
+          log_min_duration_statement = 500
+          log_checkpoints = on
+          log_connections = on
+          log_disconnections = on
+      notify: Restart PostgreSQL
+
+    - name: Ensure pg_hba scram for local too
+      ansible.builtin.blockinfile:
+        path: "{{ db_conf_dir }}/pg_hba.conf"
+        marker: "# {mark} ANSIBLE-HARDEN"
+        block: |
+          local   all             all                                     scram-sha-256
+      notify: Reload PostgreSQL
+
+    - name: Install backup rotate script
+      ansible.builtin.copy:
+        dest: /usr/local/sbin/pg_backup_rotate.sh
+        mode: "0755"
+        content: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          TS=$(date +%Y%m%d_%H%M%S)
+          FILE="{{ db_backup_dir }}/{{ db_name }}_full_${TS}.dump"
+          export PGPASSWORD="{{ db_admin_password }}"
+          pg_dump -U {{ db_admin_user }} -F c -f "$FILE" {{ db_name }}
+          find "{{ db_backup_dir }}" -type f -name "{{ db_name }}_full_*.dump" -mtime +7 -delete
+
+    - name: Cron daily backup at 02:30
+      ansible.builtin.cron:
+        name: "Postgres daily backup {{ db_name }}"
+        user: root
+        minute: "30"
+        hour: "2"
+        job: "/usr/local/sbin/pg_backup_rotate.sh >/var/log/pg_backup_rotate.log 2>&1"
+
+  handlers:
+    - name: Reload PostgreSQL
+      ansible.builtin.service:
+        name: postgresql
+        state: reloaded
+
+    - name: Restart PostgreSQL
+      ansible.builtin.service:
+        name: postgresql
+        state: restarted
