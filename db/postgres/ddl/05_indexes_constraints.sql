@@ -1,31 +1,69 @@
--- db/postgres/ddl/05_indexes_constraints.sql
 SET search_path TO metier, referentiel, public;
-
----------------------------
--- Normalize & dedupe emails BEFORE uniqueness
----------------------------
-
--- Normalize: trim + lower (skip NULLs)
 UPDATE metier.citoyens
 SET email = lower(trim(email))
 WHERE email IS NOT NULL
-  AND (email <> lower(trim(email)));
+  AND email <> lower(trim(email));
 
--- Remove exact duplicates on normalized email, keep the smallest citoyen_id
-WITH d AS (
-  SELECT citoyen_id,
-         row_number() OVER (PARTITION BY email ORDER BY citoyen_id) AS rn
+WITH grp AS (
+  SELECT email,
+         MIN(citoyen_id) AS survivant
   FROM metier.citoyens
   WHERE email IS NOT NULL
+  GROUP BY email
+  HAVING COUNT(*) > 1
+),
+dups AS (
+  SELECT c.citoyen_id, c.email, g.survivant
+  FROM metier.citoyens c
+  JOIN grp g ON c.email = g.email
+  WHERE c.citoyen_id <> g.survivant
 )
-DELETE FROM metier.citoyens c
-USING d
-WHERE c.citoyen_id = d.citoyen_id
-  AND d.rn > 1;
+UPDATE metier.demandes_rdv d
+SET citoyen_id = dups.survivant
+FROM dups
+WHERE d.citoyen_id = dups.citoyen_id;
 
----------------------------
--- Foreign keys (idempotent)
----------------------------
+UPDATE metier.demandes_etat_civil d
+SET citoyen_id = dups.survivant
+FROM dups
+WHERE d.citoyen_id = dups.citoyen_id;
+
+UPDATE metier.demandes_urbanisme d
+SET citoyen_id = dups.survivant
+FROM dups
+WHERE d.citoyen_id = dups.citoyen_id;
+
+DELETE FROM metier.citoyens c
+USING (
+  SELECT c2.citoyen_id
+  FROM metier.citoyens c2
+  JOIN (
+    SELECT email, MIN(citoyen_id) AS survivant
+    FROM metier.citoyens
+    WHERE email IS NOT NULL
+    GROUP BY email
+    HAVING COUNT(*) > 1
+  ) g ON c2.email = g.email
+  WHERE c2.citoyen_id <> g.survivant
+) z
+WHERE c.citoyen_id = z.citoyen_id;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.tables
+    WHERE table_schema = 'metier'
+      AND table_name   = 'histo_demandes_rdv'
+  ) THEN
+    DELETE FROM metier.histo_demandes_rdv h
+    WHERE NOT EXISTS (
+      SELECT 1 FROM metier.demandes_rdv d
+      WHERE d.rdv_id = h.rdv_id
+    );
+  END IF;
+END$$;
+
 
 DO $$
 BEGIN
@@ -69,7 +107,6 @@ BEGIN
   END IF;
 END$$;
 
--- type_rdv référence le code (SOCIAL, URBANISME, ...)
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -154,11 +191,7 @@ BEGIN
   END IF;
 END$$;
 
----------------------------
--- Indexes (idempotent)
----------------------------
 
--- Unicité email après normalisation + dédoublonnage
 CREATE UNIQUE INDEX IF NOT EXISTS idx_citoyens_email
   ON metier.citoyens(email);
 
