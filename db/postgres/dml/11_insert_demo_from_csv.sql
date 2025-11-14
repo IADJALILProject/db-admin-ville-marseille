@@ -1,12 +1,11 @@
--- db/postgres/dml/11_insert_demo_from_csv.sql
--- Chargement CSV via tables de staging (COPY serveur) puis upsert + normalisation des codes
 SET search_path TO metier, referentiel, public;
+TRUNCATE TABLE
+  metier.demandes_urbanisme,
+  metier.demandes_etat_civil,
+  metier.demandes_rdv,
+  metier.citoyens
+RESTART IDENTITY CASCADE;
 
--- Tous les chemins doivent exister DANS LE CONTENEUR Postgres (volume monté: ./data -> /app/data)
-
--- =========================================================
--- 1) SERVICES MUNICIPAUX (staging + upsert référentiel)
--- =========================================================
 DROP TABLE IF EXISTS _stg_services_municipaux;
 CREATE TEMP TABLE _stg_services_municipaux
 (
@@ -42,9 +41,7 @@ SET code_service      = COALESCE(EXCLUDED.code_service,      referentiel.service
     email_contact     = COALESCE(EXCLUDED.email_contact,     referentiel.services_municipaux.email_contact),
     telephone_contact = COALESCE(EXCLUDED.telephone_contact, referentiel.services_municipaux.telephone_contact);
 
--- ==========================================
--- 2) CITOYENS (staging + upsert métier)
--- ==========================================
+
 DROP TABLE IF EXISTS _stg_citoyens;
 CREATE TEMP TABLE _stg_citoyens
 (
@@ -71,7 +68,7 @@ SELECT
     NULLIF(TRIM(c.nom), ''),
     NULLIF(TRIM(c.prenom), ''),
     c.date_naissance,
-    NULLIF(TRIM(c.email), ''),
+    lower(NULLIF(TRIM(c.email), '')),
     NULLIF(TRIM(c.telephone), ''),
     NULLIF(TRIM(c.adresse), ''),
     NULLIF(TRIM(c.code_postal), ''),
@@ -89,21 +86,16 @@ SET nom            = EXCLUDED.nom,
     ville          = EXCLUDED.ville,
     arrondissement = EXCLUDED.arrondissement;
 
--- ===============================================================
--- 3) DEMANDES RDV (staging + mapping type_rdv/canal → codes)
--- ===============================================================
 DROP TABLE IF EXISTS _stg_demandes_rdv;
 CREATE TEMP TABLE _stg_demandes_rdv
 (
     rdv_id        BIGINT,
     citoyen_id    BIGINT,
     service_id    BIGINT,
-    type_rdv_txt  TEXT,   -- code OU libellé depuis le CSV
-    date_demande  DATE,
+    type_rdv_txt  TEXT,   
     date_rdv      DATE,
     statut        TEXT,
-    canal_txt     TEXT,   -- code OU libellé depuis le CSV
-    commentaire   TEXT
+    canal_txt     TEXT,  
 );
 
 COPY _stg_demandes_rdv (rdv_id,citoyen_id,service_id,type_rdv_txt,date_demande,date_rdv,statut,canal_txt,commentaire)
@@ -140,9 +132,6 @@ FROM m
 WHERE type_rdv_code IS NOT NULL
   AND canal_code    IS NOT NULL;
 
--- =======================================================================
--- 4) DEMANDES ETAT CIVIL (staging + mapping → codes référentiels EC)
--- =======================================================================
 DROP TABLE IF EXISTS _stg_dem_ec;
 CREATE TEMP TABLE _stg_dem_ec
 (
@@ -181,9 +170,7 @@ SELECT
 FROM m
 WHERE type_demande_code IS NOT NULL;
 
--- ===========================================================
--- 5) DEMANDES URBANISME (staging + mapping → codes urbains)
--- ===========================================================
+
 DROP TABLE IF EXISTS _stg_dem_urb;
 CREATE TEMP TABLE _stg_dem_urb
 (

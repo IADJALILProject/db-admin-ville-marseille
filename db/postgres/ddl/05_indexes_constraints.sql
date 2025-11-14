@@ -4,50 +4,6 @@ SET email = lower(trim(email))
 WHERE email IS NOT NULL
   AND email <> lower(trim(email));
 
-WITH grp AS (
-  SELECT email,
-         MIN(citoyen_id) AS survivant
-  FROM metier.citoyens
-  WHERE email IS NOT NULL
-  GROUP BY email
-  HAVING COUNT(*) > 1
-),
-dups AS (
-  SELECT c.citoyen_id, c.email, g.survivant
-  FROM metier.citoyens c
-  JOIN grp g ON c.email = g.email
-  WHERE c.citoyen_id <> g.survivant
-)
-UPDATE metier.demandes_rdv d
-SET citoyen_id = dups.survivant
-FROM dups
-WHERE d.citoyen_id = dups.citoyen_id;
-
-UPDATE metier.demandes_etat_civil d
-SET citoyen_id = dups.survivant
-FROM dups
-WHERE d.citoyen_id = dups.citoyen_id;
-
-UPDATE metier.demandes_urbanisme d
-SET citoyen_id = dups.survivant
-FROM dups
-WHERE d.citoyen_id = dups.citoyen_id;
-
-DELETE FROM metier.citoyens c
-USING (
-  SELECT c2.citoyen_id
-  FROM metier.citoyens c2
-  JOIN (
-    SELECT email, MIN(citoyen_id) AS survivant
-    FROM metier.citoyens
-    WHERE email IS NOT NULL
-    GROUP BY email
-    HAVING COUNT(*) > 1
-  ) g ON c2.email = g.email
-  WHERE c2.citoyen_id <> g.survivant
-) z
-WHERE c.citoyen_id = z.citoyen_id;
-
 DO $$
 BEGIN
   IF EXISTS (
@@ -191,8 +147,9 @@ BEGIN
   END IF;
 END$$;
 
+DROP INDEX IF EXISTS idx_citoyens_email;
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_citoyens_email
+CREATE INDEX IF NOT EXISTS idx_citoyens_email
   ON metier.citoyens(email);
 
 CREATE INDEX IF NOT EXISTS idx_rdv_citoyen  ON metier.demandes_rdv(citoyen_id);
