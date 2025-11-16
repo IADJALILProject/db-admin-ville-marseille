@@ -1,65 +1,75 @@
 - name: Install and configure PostgreSQL
   hosts: db_servers
-  become: true
+
   vars:
-    apt_cache_valid_time: 3600
+    effective_pg_version: "{{ postgres_version | default('16') }}"
+    effective_conf_dir: "{{ db_conf_dir | default('/etc/postgresql/16/main') }}"
+
   tasks:
-    - name: Update APT cache
-      ansible.builtin.apt:
-        update_cache: true
-        cache_valid_time: "{{ apt_cache_valid_time }}"
-
     - name: Install common packages
-      ansible.builtin.apt:
-        name: "{{ packages_common }}"
+      become: true
+      ansible.builtin.package:
+        name: "{{ packages_common | default(['git', 'curl', 'python3-psycopg2']) }}"
         state: present
 
-    - name: Install PostgreSQL packages
-      ansible.builtin.apt:
-        name: "{{ packages_postgres }}"
+    - name: Install PostgreSQL server and client
+      become: true
+      ansible.builtin.package:
+        name: "{{ packages_postgres | default(['postgresql', 'postgresql-client']) }}"
         state: present
 
-    - name: Ensure directories exist
-      ansible.builtin.file:
-        path: "{{ item }}"
-        state: directory
-        owner: "{{ db_admin_user }}"
-        group: "{{ db_admin_group }}"
-        mode: "0750"
-      loop:
-        - "{{ db_backup_dir }}"
-        - "{{ db_admin_scripts_dir }}"
-        - "{{ db_admin_repo_root }}"
-
-    - name: Configure postgresql.conf (listen_addresses)
-      ansible.builtin.lineinfile:
-        path: "{{ db_conf_dir }}/postgresql.conf"
-        regexp: '^#?\s*listen_addresses\s*='
-        line: "listen_addresses = '{{ db_listen_address }}'"
-        backup: true
-      notify: Restart PostgreSQL
-
-    - name: Allow subnet in pg_hba.conf (scram)
-      ansible.builtin.blockinfile:
-        path: "{{ db_conf_dir }}/pg_hba.conf"
-        marker: "# {mark} ANSIBLE-MARSEILLE"
-        block: |
-          host    all             all             {{ db_allowed_subnet }}         scram-sha-256
-      notify: Reload PostgreSQL
-
-    - name: Ensure service enabled & started
+    - name: Ensure PostgreSQL service is enabled and started
+      become: true
       ansible.builtin.service:
         name: postgresql
         state: started
         enabled: true
 
-  handlers:
-    - name: Reload PostgreSQL
-      ansible.builtin.service:
-        name: postgresql
-        state: reloaded
+    - name: Configure listen_addresses
+      become: true
+      ansible.builtin.lineinfile:
+        path: "{{ effective_conf_dir }}/postgresql.conf"
+        regexp: '^#?\s*listen_addresses\s*='
+        line: "listen_addresses = '{{ db_listen_address | default('0.0.0.0') }}'"
+        state: present
+      notify: Reload PostgreSQL
 
-    - name: Restart PostgreSQL
-      ansible.builtin.service:
-        name: postgresql
-        state: restarted
+    - name: Allow db_admin from allowed subnet in pg_hba.conf
+      become: true
+      ansible.builtin.lineinfile:
+        path: "{{ effective_conf_dir }}/pg_hba.conf"
+        insertafter: '^#.*IPv4 local connections:'
+        line: "host    {{ db_name }}    {{ db_admin_user }}    {{ db_allowed_subnet }}    md5"
+        state: present
+      notify: Reload PostgreSQL
+
+    - name: Ensure db_admin role exists
+      become: true
+      ansible.builtin.shell: |
+        sudo -u postgres psql -v ON_ERROR_STOP=1 --quiet <<'SQL'
+        DO $$
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{{ db_admin_user }}') THEN
+            CREATE ROLE {{ db_admin_user }} LOGIN PASSWORD '{{ db_admin_password }}' CREATEDB;
+          END IF;
+        END$$;
+        SQL
+      args:
+        executable: /bin/bash
+
+    - name: Ensure application database exists
+      become: true
+      ansible.builtin.shell: |
+        if sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='{{ db_name }}';" | grep -q 1; then
+          echo "db_exists";
+        else
+          sudo -u postgres createdb -E UTF8 -O {{ db_admin_user }} {{ db_name }};
+          echo "db_created";
+        fi
+      args:
+        executable: /bin/bash
+      register: create_db_result
+      changed_when: "'db_created' in create_db_result.stdout"
+
+
+

@@ -1,5 +1,3 @@
-# ansible/roles/postgres/handlers/main.yml
-
 - name: restart postgresql
   service:
     name: postgresql

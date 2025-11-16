@@ -1,10 +1,10 @@
 # Versions & chemins
-postgres_version: "15"
+postgres_version: "16"
 db_name: "mairie"
 
-db_admin_user: "postgres"          # sur VM Linux, l’admin DB est 'postgres'
+db_admin_user: "postgres"
 db_admin_group: "postgres"
-db_admin_password: "CHANGE_ME"     # ⚠︎ à mettre sous ansible-vault en prod
+db_admin_password: "CHANGE_ME"     # à vault en prod
 
 db_data_dir: "/var/lib/postgresql/{{ postgres_version }}/main"
 db_conf_dir: "/etc/postgresql/{{ postgres_version }}/main"
@@ -26,8 +26,8 @@ packages_common:
   - python3-psycopg2
 
 packages_postgres:
-  - "postgresql-{{ postgres_version }}"
-  - "postgresql-client-{{ postgres_version }}"
+  - "postgresql"
+  - "postgresql-client"
 
 # Exclusions de sync (déploiement repo)
 rsync_excludes:

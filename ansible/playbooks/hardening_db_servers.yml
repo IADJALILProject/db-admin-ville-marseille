@@ -1,10 +1,17 @@
 - name: Basic PostgreSQL hardening and backups
   hosts: db_servers
   become: true
+
+  vars:
+    effective_pg_version: "{{ postgres_version | default('15') }}"
+    effective_conf_dir: "{{ db_conf_dir | default('/etc/postgresql/15/main') }}"
+    effective_backup_dir: "{{ db_backup_dir | default('/var/backups/postgres') }}"
+    effective_psql_bin: "{{ psql_bin | default('/usr/bin/psql') }}"
+
   tasks:
-    - name: Enforce secure local auth and logging
+    - name: Enable detailed logging in postgresql.conf
       ansible.builtin.blockinfile:
-        path: "{{ db_conf_dir }}/postgresql.conf"
+        path: "{{ effective_conf_dir }}/postgresql.conf"
         marker: "# {mark} ANSIBLE-LOGGING"
         block: |
           logging_collector = on
@@ -13,32 +20,40 @@
           log_checkpoints = on
           log_connections = on
           log_disconnections = on
-      notify: Restart PostgreSQL
-
-    - name: Ensure pg_hba scram for local too
-      ansible.builtin.blockinfile:
-        path: "{{ db_conf_dir }}/pg_hba.conf"
-        marker: "# {mark} ANSIBLE-HARDEN"
-        block: |
-          local   all             all                                     scram-sha-256
       notify: Reload PostgreSQL
 
-    - name: Install backup rotate script
+    - name: Ensure backup directory exists
+      ansible.builtin.file:
+        path: "{{ effective_backup_dir }}"
+        state: directory
+        owner: postgres
+        group: postgres
+        mode: '0750'
+
+    - name: Install simple logical backup script
       ansible.builtin.copy:
         dest: /usr/local/sbin/pg_backup_rotate.sh
-        mode: "0755"
+        owner: root
+        group: root
+        mode: '0755'
         content: |
           #!/usr/bin/env bash
           set -euo pipefail
-          TS=$(date +%Y%m%d_%H%M%S)
-          FILE="{{ db_backup_dir }}/{{ db_name }}_full_${TS}.dump"
-          export PGPASSWORD="{{ db_admin_password }}"
-          pg_dump -U {{ db_admin_user }} -F c -f "$FILE" {{ db_name }}
-          find "{{ db_backup_dir }}" -type f -name "{{ db_name }}_full_*.dump" -mtime +7 -delete
 
-    - name: Cron daily backup at 02:30
+          BACKUP_DIR="{{ effective_backup_dir }}"
+          DB_NAME="{{ db_name }}"
+          TS="$(date +%Y%m%d_%H%M%S)"
+          FILE="${BACKUP_DIR}/${DB_NAME}_${TS}.dump"
+
+          mkdir -p "${BACKUP_DIR}"
+          sudo -u postgres {{ effective_psql_bin | dirname }}/pg_dump -Fc "${DB_NAME}" > "${FILE}"
+
+          # Keep last 7 backups
+          ls -1t "${BACKUP_DIR}"/${DB_NAME}_*.dump | tail -n +8 | xargs -r rm -f
+
+    - name: Schedule nightly backup
       ansible.builtin.cron:
-        name: "Postgres daily backup {{ db_name }}"
+        name: "PostgreSQL logical backup ({{ db_name }})"
         user: root
         minute: "30"
         hour: "2"
@@ -49,8 +64,3 @@
       ansible.builtin.service:
         name: postgresql
         state: reloaded
-
-    - name: Restart PostgreSQL
-      ansible.builtin.service:
-        name: postgresql
-        state: restarted
