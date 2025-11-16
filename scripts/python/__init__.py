@@ -1,5 +1,3 @@
-# scripts/python/__init__.py
-
 __all__ = [
     "db_utils",
     "simulate_data",

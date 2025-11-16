@@ -1,5 +1,3 @@
-# scripts/python/scheduler.py
-
 import logging
 import time
 from threading import Thread

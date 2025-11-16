@@ -1,0 +1,16 @@
+apiVersion: 1
+
+datasources:
+  - name: "Postgres Mairie"
+    uid: "mairie-postgres"
+    type: postgres
+    access: proxy
+    url: postgres:5432
+    database: mairie
+    user: db_admin
+    secureJsonData:
+      password: CHANGE_ME
+    jsonData:
+      sslmode: "disable"
+      postgresVersion: 1500
+      timescaledb: false

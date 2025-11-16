@@ -1,5 +1,3 @@
-# scripts/python/backup_runner.py
-
 import datetime as dt
 import logging
 import shutil

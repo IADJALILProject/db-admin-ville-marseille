@@ -21,13 +21,13 @@ def create_rdv_transaction():
                 );
                 """,
                 (
-                    1738,                         # citoyen_id existant
-                    10,                           # service_id existant
-                    "Rendez-vous social",         # type_rdv (doit exister dans referentiel.types_rdv)
-                    date(2025, 1, 10),            # date_demande
-                    date(2025, 1, 15),            # date_rdv
-                    "EN_LIGNE",                   # canal
-                    "Créé via démonstration transactionnelle",  # commentaire
+                    1738,                        
+                    10,                         
+                    "Rendez-vous social",         
+                    date(2025, 1, 10),            
+                    date(2025, 1, 15),          
+                    "EN_LIGNE",                  
+                    "Créé via démonstration transactionnelle",
                 ),
             )
             rdv_id = cur.fetchone()[0]
@@ -73,7 +73,7 @@ def simulate_failed_transaction():
                 );
                 """,
                 (
-                    -1,                           # citoyen_id inexistant volontairement
+                    -1,                          
                     10,
                     "Rendez-vous social",
                     date(2025, 1, 10),

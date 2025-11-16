@@ -1,9 +1,10 @@
 SET search_path TO metier, referentiel, public;
+
 TRUNCATE TABLE
-  metier.demandes_urbanisme,
-  metier.demandes_etat_civil,
-  metier.demandes_rdv,
-  metier.citoyens
+    metier.demandes_urbanisme,
+    metier.demandes_etat_civil,
+    metier.demandes_rdv,
+    metier.citoyens
 RESTART IDENTITY CASCADE;
 
 DROP TABLE IF EXISTS _stg_services_municipaux;
@@ -41,7 +42,9 @@ SET code_service      = COALESCE(EXCLUDED.code_service,      referentiel.service
     email_contact     = COALESCE(EXCLUDED.email_contact,     referentiel.services_municipaux.email_contact),
     telephone_contact = COALESCE(EXCLUDED.telephone_contact, referentiel.services_municipaux.telephone_contact);
 
-
+-- ==========================================
+-- 2) CITOYENS (staging + upsert métier)
+-- ==========================================
 DROP TABLE IF EXISTS _stg_citoyens;
 CREATE TEMP TABLE _stg_citoyens
 (
@@ -68,7 +71,7 @@ SELECT
     NULLIF(TRIM(c.nom), ''),
     NULLIF(TRIM(c.prenom), ''),
     c.date_naissance,
-    lower(NULLIF(TRIM(c.email), '')),
+    NULLIF(TRIM(c.email), ''),
     NULLIF(TRIM(c.telephone), ''),
     NULLIF(TRIM(c.adresse), ''),
     NULLIF(TRIM(c.code_postal), ''),
@@ -86,6 +89,9 @@ SET nom            = EXCLUDED.nom,
     ville          = EXCLUDED.ville,
     arrondissement = EXCLUDED.arrondissement;
 
+-- ===============================================================
+-- 3) DEMANDES RDV (staging + mapping type_rdv/canal → codes)
+-- ===============================================================
 DROP TABLE IF EXISTS _stg_demandes_rdv;
 CREATE TEMP TABLE _stg_demandes_rdv
 (
@@ -93,12 +99,15 @@ CREATE TEMP TABLE _stg_demandes_rdv
     citoyen_id    BIGINT,
     service_id    BIGINT,
     type_rdv_txt  TEXT,   
+    date_demande  DATE,
     date_rdv      DATE,
     statut        TEXT,
-    canal_txt     TEXT,  
+    canal_txt     TEXT,   
+    commentaire   TEXT
 );
 
-COPY _stg_demandes_rdv (rdv_id,citoyen_id,service_id,type_rdv_txt,date_demande,date_rdv,statut,canal_txt,commentaire)
+COPY _stg_demandes_rdv
+    (rdv_id, citoyen_id, service_id, type_rdv_txt, date_demande, date_rdv, statut, canal_txt, commentaire)
 FROM '/app/data/sources/demandes_rdv.csv'
 WITH (FORMAT csv, HEADER true, DELIMITER ',', ENCODING 'UTF8');
 
@@ -126,8 +135,15 @@ WITH m AS (
 INSERT INTO metier.demandes_rdv
     (rdv_id, citoyen_id, service_id, type_rdv, date_demande, date_rdv, statut, canal, commentaire)
 SELECT
-    rdv_id, citoyen_id, service_id, type_rdv_code, date_demande, date_rdv,
-    statut_norm, canal_code, commentaire
+    rdv_id,
+    citoyen_id,
+    service_id,
+    type_rdv_code,
+    date_demande,
+    date_rdv,
+    statut_norm,
+    canal_code,
+    commentaire
 FROM m
 WHERE type_rdv_code IS NOT NULL
   AND canal_code    IS NOT NULL;
@@ -166,7 +182,13 @@ WITH m AS (
 INSERT INTO metier.demandes_etat_civil
     (demande_id, citoyen_id, type_demande, date_demande, date_traitement, statut, mode_retrait)
 SELECT
-    demande_id, citoyen_id, type_demande_code, date_demande, date_traitement, statut_norm, mode_retrait
+    demande_id,
+    citoyen_id,
+    type_demande_code,
+    date_demande,
+    date_traitement,
+    statut_norm,
+    mode_retrait
 FROM m
 WHERE type_demande_code IS NOT NULL;
 
@@ -210,7 +232,14 @@ INSERT INTO metier.demandes_urbanisme
     (demande_id, citoyen_id, type_demande, adresse_projet, code_postal, arrondissement,
      date_demande, date_decision, statut)
 SELECT
-    demande_id, citoyen_id, type_demande_code, adresse_projet, code_postal, arrondissement,
-    date_demande, date_decision, statut_norm
+    demande_id,
+    citoyen_id,
+    type_demande_code,
+    adresse_projet,
+    code_postal,
+    arrondissement,
+    date_demande,
+    date_decision,
+    statut_norm
 FROM m
 WHERE type_demande_code IS NOT NULL;

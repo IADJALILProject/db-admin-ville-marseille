@@ -1,91 +1,192 @@
-# scripts/python/health_checks.py
+"""
+Health checks PostgreSQL pour la base 'mairie'.
 
-import json
+- Vérifie que la base est joignable
+- Compte les sessions actives / en attente / bloquantes
+- Mesure la taille de la base
+- Essaie d'estimer un temps moyen de requête (si statistiques disponibles)
+- Insère une ligne dans monitoring.db_health_status
+"""
+
 import logging
-import time
-from pathlib import Path
-from typing import Dict, Any
 import os
+from datetime import datetime
+from pathlib import Path
+
 import psycopg2
-import psycopg2.extras
+from psycopg2 import sql
 
-from db_utils import BASE_DIR, get_postgres_conn_info, pg_connection
+from db_utils import get_pg_connection
 
-logger = logging.getLogger("db_admin.health")
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+if not logger.handlers:
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+    formatter = logging.Formatter(
+        fmt="%(asctime)s [%(levelname)s] health_checks: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
 
 
-def check_postgres_connectivity() -> Dict[str, Any]:
-    info = get_postgres_conn_info()
-    started = time.time()
-    ok = False
-    error = ""
-    try:
-        with pg_connection(autocommit=True) as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT 1")
-                cur.fetchone()
-        ok = True
-    except Exception as exc:
-        error = str(exc)
-        logger.exception("Erreur de connectivité Postgres")
-    latency_ms = round((time.time() - started) * 1000, 2)
-    return {
-        "engine": "postgres",
-        "host": info.host,
-        "port": info.port,
-        "database": info.database,
-        "ok": ok,
-        "latency_ms": latency_ms,
-        "error": error,
+# Tous les artefacts de monitoring côté Airflow (ou overridable)
+MONITORING_ROOT = Path(os.getenv("DBM_MONITORING_DIR", "/opt/airflow/monitoring"))
+REPORTS_DIR = MONITORING_ROOT / "reports"
+REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def collect_health_metrics(conn) -> dict:
+    """
+    Collecte les métriques principales depuis Postgres.
+    Retourne un dict prêt à être inséré dans monitoring.db_health_status
+    """
+    metrics = {
+        "is_up": False,
+        "active_sessions": None,
+        "waiting_sessions": None,
+        "blocking_sessions": None,
+        "avg_query_ms": None,
+        "db_size_bytes": None,
     }
 
+    with conn.cursor() as cur:
+        # 1) DB UP ?
+        try:
+            cur.execute("SELECT 1;")
+            cur.fetchone()
+            metrics["is_up"] = True
+        except psycopg2.Error as e:
+            logger.error("Échec du check 'SELECT 1': %s", e)
+            metrics["is_up"] = False
+            return metrics
 
-def postgres_basic_metrics() -> Dict[str, Any]:
-    metrics: Dict[str, Any] = {}
-    with pg_connection(autocommit=True) as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute("SELECT count(*) AS sessions FROM pg_stat_activity;")
-            metrics["sessions_total"] = cur.fetchone()["sessions"]
-
+        # 2) Sessions actives / en attente
+        try:
             cur.execute(
-                "SELECT sum(pg_database_size(datname)) AS total_db_size "
-                "FROM pg_database WHERE datistemplate = false;"
+                """
+                SELECT
+                  count(*) FILTER (WHERE state = 'active')                       AS active_sessions,
+                  count(*) FILTER (WHERE wait_event IS NOT NULL)                 AS waiting_sessions
+                FROM pg_stat_activity
+                WHERE datname = current_database();
+                """
             )
-            metrics["total_db_size_bytes"] = cur.fetchone()["total_db_size"]
+            row = cur.fetchone()
+            metrics["active_sessions"] = row[0]
+            metrics["waiting_sessions"] = row[1]
+        except psycopg2.Error as e:
+            logger.warning("Impossible de lire pg_stat_activity: %s", e)
 
+        # 3) Sessions bloquantes (approximation)
+        try:
             cur.execute(
-                "SELECT count(*) AS locks_count "
-                "FROM pg_locks l JOIN pg_database d ON l.database = d.oid "
-                "WHERE d.datname = current_database();"
+                """
+                SELECT count(*)
+                FROM pg_locks l
+                JOIN pg_stat_activity a ON l.pid = a.pid
+                WHERE NOT l.granted;
+                """
             )
-            metrics["locks_count"] = cur.fetchone()["locks_count"]
+            metrics["blocking_sessions"] = cur.fetchone()[0]
+        except psycopg2.Error as e:
+            logger.warning("Impossible de lire pg_locks/pg_stat_activity: %s", e)
+
+        # 4) Taille de la base
+        try:
+            cur.execute("SELECT pg_database_size(current_database());")
+            metrics["db_size_bytes"] = cur.fetchone()[0]
+        except psycopg2.Error as e:
+            logger.warning("Impossible de lire pg_database_size: %s", e)
+
+        # 5) Temps moyen de requête (approx via pg_stat_database)
+        try:
+            cur.execute(
+                """
+                SELECT
+                  CASE
+                    WHEN sum(xact_commit + xact_rollback) = 0 THEN NULL
+                    ELSE sum(blks_read_time + blks_write_time)
+                         / sum(xact_commit + xact_rollback)
+                  END AS avg_ms
+                FROM pg_stat_database
+                WHERE datname = current_database();
+                """
+            )
+            val = cur.fetchone()[0]
+            metrics["avg_query_ms"] = float(val) if val is not None else None
+        except psycopg2.Error as e:
+            logger.warning("Impossible d'estimer avg_query_ms: %s", e)
+
     return metrics
 
 
-def write_health_status(payload):
-    from decimal import Decimal
-    def convert_decimal(obj):
-        if isinstance(obj, Decimal):
-            return float(obj)
-        if isinstance(obj, dict):
-            return {k: convert_decimal(v) for k, v in obj.items()}
-        if isinstance(obj, list):
-            return [convert_decimal(v) for v in obj]
-        return obj
+def insert_health_row(conn, metrics: dict) -> None:
+    """
+    Insère une ligne dans monitoring.db_health_status
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO monitoring.db_health_status
+              (is_up, active_sessions, avg_query_ms, db_size_bytes,
+               waiting_sessions, blocking_sessions)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            """,
+            (
+                metrics["is_up"],
+                metrics["active_sessions"],
+                metrics["avg_query_ms"],
+                metrics["db_size_bytes"],
+                metrics["waiting_sessions"],
+                metrics["blocking_sessions"],
+            ),
+        )
 
-    payload = convert_decimal(payload)
 
-    os.makedirs("monitoring/status", exist_ok=True)
-    with open("monitoring/status/health_status.json", "w", encoding="utf-8") as f:
-        json.dump(payload, f, indent=2, ensure_ascii=False)
+def write_markdown_report(metrics: dict) -> None:
+    """
+    Écrit un petit rapport Markdown dans monitoring/reports/rapport_health_status.md
+    """
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    md_path = REPORTS_DIR / "rapport_health_status.md"
+
+    lines = [
+        f"# Health check PostgreSQL – {ts}",
+        "",
+        f"- **Instance up** : {'✅ OUI' if metrics['is_up'] else '❌ NON'}",
+        f"- **Sessions actives** : {metrics['active_sessions']}",
+        f"- **Sessions en attente** : {metrics['waiting_sessions']}",
+        f"- **Sessions bloquantes** : {metrics['blocking_sessions']}",
+        f"- **Taille base** : {metrics['db_size_bytes']} octets",
+        f"- **Temps moyen requêtes (approx)** : {metrics['avg_query_ms']} ms",
+        "",
+    ]
+
+    md_path.write_text("\n".join(lines), encoding="utf-8")
+    logger.info("Rapport Markdown écrit dans %s", md_path)
+
 
 def main() -> None:
-    logger.info("Exécution des health checks")
-    status = check_postgres_connectivity()
-    metrics = postgres_basic_metrics()
-    payload = {"status": status, "metrics": metrics, "timestamp": time.time()}
-    write_health_status(payload)
-    logger.info("Health checks terminés")
+    logger.info("Démarrage des health checks PostgreSQL...")
+    conn = get_pg_connection()
+    conn.autocommit = True
+
+    try:
+        metrics = collect_health_metrics(conn)
+        logger.info("Métriques collectées: %s", metrics)
+
+        insert_health_row(conn, metrics)
+        logger.info("Ligne insérée dans monitoring.db_health_status")
+
+        write_markdown_report(metrics)
+    finally:
+        conn.close()
+        logger.info("Connexion PostgreSQL fermée.")
+
+    logger.info("Health checks terminés avec succès.")
 
 
 if __name__ == "__main__":

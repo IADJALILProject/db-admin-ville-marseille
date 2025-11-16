@@ -1,5 +1,3 @@
-# scripts/python/generate_reports.py
-
 import csv
 import datetime as dt
 from pathlib import Path

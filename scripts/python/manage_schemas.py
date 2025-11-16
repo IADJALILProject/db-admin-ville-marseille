@@ -1,5 +1,3 @@
-# scripts/python/manage_schemas.py
-
 import logging
 from pathlib import Path
 
@@ -15,7 +13,8 @@ DDL_ORDER = [
     "04_create_tables_citoyens_rdv.sql",
     "05_indexes_constraints.sql",
     "06_views_reporting.sql",
-    "07_functions_rdv.sql"
+    "07_functions_rdv.sql",
+    "08_monitoring_schema.sql"
 ]
 
 DML_ORDER = [

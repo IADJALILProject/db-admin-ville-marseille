@@ -1,5 +1,3 @@
-# scripts/python/security_audit.py
-
 import csv
 import logging
 import time

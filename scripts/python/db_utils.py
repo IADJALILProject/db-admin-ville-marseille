@@ -1,5 +1,3 @@
-# scripts/python/db_utils.py
-
 import logging
 import logging.config
 import subprocess
@@ -12,6 +10,9 @@ from typing import Any, Dict, Optional
 import psycopg2
 import psycopg2.extras
 import yaml
+import os
+
+
 
 
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -119,3 +120,12 @@ def run_subprocess(cmd: str, timeout: Optional[int] = None) -> subprocess.Comple
         raise RuntimeError(f"Echec commande {cmd}: {result.stderr}")
     logger.info("Commande terminée (%s s): %s", round(duration, 2), cmd)
     return result
+
+def get_pg_connection():
+    return psycopg2.connect(
+        host=os.getenv("DB_HOST", "localhost"),
+        port=os.getenv("DB_PORT", "5432"),
+        dbname=os.getenv("DB_NAME", "mairie"),
+        user=os.getenv("DB_USER", "db_admin"),
+        password=os.getenv("DB_PASSWORD", "CHANGE_ME"),
+    )
