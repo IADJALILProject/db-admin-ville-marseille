@@ -104,7 +104,10 @@ services:
       - ./airflow/dags:/opt/airflow/dags
       - ./airflow/logs:/opt/airflow/logs
       - ./airflow/plugins:/opt/airflow/plugins
-      - ./:/opt/db-admin-ville-marseille     # 👈 **NOUVEAU**
+      - ./scripts:/opt/db-admin-ville-marseille/scripts
+      - ./monitoring/status:/opt/db-admin-ville-marseille/monitoring/status
+      - ./monitoring/reports:/opt/db-admin-ville-marseille/monitoring/reports
+      - ./monitoring/kpi_definition.md:/opt/db-admin-ville-marseille/monitoring/kpi_definition.md
     command: >
       bash -c "
         airflow db migrate &&
