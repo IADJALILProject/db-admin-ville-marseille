@@ -1,7 +1,8 @@
 {
   "id": null,
   "uid": "dbm-observability",
-  "title": "PostgreSQL & Airflow - Ville de Marseille",
+  "title": "Supervision PostgreSQL & Airflow - Ville de Marseille",
+  "description": "Tableau de bord de supervision de la base 'mairie' (disponibilité, sessions, WAL, bloat, verrous, tâches Airflow).",
   "timezone": "browser",
   "schemaVersion": 38,
   "version": 1,
@@ -14,7 +15,8 @@
     {
       "id": 1,
       "type": "stat",
-      "title": "Disponibilité Postgres",
+      "title": "Disponibilité PostgreSQL (période)",
+      "description": "Dernier état de disponibilité de l’instance (100% si up, 0% si down).",
       "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
       "targets": [
         {
@@ -48,7 +50,8 @@
     {
       "id": 2,
       "type": "timeseries",
-      "title": "Latence moyenne des requêtes (ms)",
+      "title": "Latence moyenne estimée des requêtes (ms)",
+      "description": "Temps moyen par transaction (approximation basée sur pg_stat_database).",
       "gridPos": { "h": 8, "w": 9, "x": 6, "y": 0 },
       "targets": [
         {
@@ -64,13 +67,15 @@
         "overrides": []
       },
       "options": {
-        "legend": { "showLegend": true }
+        "legend": { "showLegend": true },
+        "tooltip": { "mode": "single" }
       }
     },
     {
       "id": 3,
       "type": "timeseries",
       "title": "Sessions actives",
+      "description": "Nombre de sessions en état 'active' sur la base courante.",
       "gridPos": { "h": 8, "w": 9, "x": 15, "y": 0 },
       "targets": [
         {
@@ -86,13 +91,15 @@
         "overrides": []
       },
       "options": {
-        "legend": { "showLegend": true }
+        "legend": { "showLegend": false },
+        "tooltip": { "mode": "single" }
       }
     },
     {
       "id": 10,
       "type": "timeseries",
-      "title": "Sessions en attente & bloquantes",
+      "title": "Sessions en attente et blocages",
+      "description": "Sessions en attente (wait_event non nul) et sessions bloquantes (locks non accordés).",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
       "targets": [
         {
@@ -108,13 +115,15 @@
         "overrides": []
       },
       "options": {
-        "legend": { "showLegend": true }
+        "legend": { "showLegend": true },
+        "tooltip": { "mode": "multi" }
       }
     },
     {
       "id": 4,
       "type": "stat",
       "title": "Taille totale base applicative",
+      "description": "Taille maximale observée de la base (pg_database_size).",
       "gridPos": { "h": 4, "w": 6, "x": 18, "y": 4 },
       "targets": [
         {
@@ -146,9 +155,34 @@
       }
     },
     {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Évolution de la taille de la base",
+      "description": "Taille de la base 'mairie' dans le temps.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "SELECT ts AS \"time\", db_size_bytes FROM monitoring.db_health_status WHERE $__timeFilter(ts) ORDER BY ts;",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "showLegend": false },
+        "tooltip": { "mode": "single" }
+      }
+    },
+    {
       "id": 6,
       "type": "timeseries",
       "title": "Activité WAL (octets cumulés)",
+      "description": "Volume cumulé écrit dans le journal de transactions (WAL).",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
       "targets": [
         {
@@ -164,13 +198,15 @@
         "overrides": []
       },
       "options": {
-        "legend": { "showLegend": true }
+        "legend": { "showLegend": false },
+        "tooltip": { "mode": "single" }
       }
     },
     {
       "id": 5,
       "type": "table",
       "title": "Top tables par taille",
+      "description": "20 plus grandes tables (toutes bases métiers confondues).",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
       "targets": [
         {
@@ -193,11 +229,12 @@
       "id": 7,
       "type": "table",
       "title": "Locks / contentions récentes",
+      "description": "Locks non accordés sur la période (source pg_locks / pg_stat_activity).",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
       "targets": [
         {
           "refId": "A",
-          "rawSql": "SELECT ts AS \"time\", relation, mode, granted, query FROM monitoring.lock_events WHERE $__timeFilter(ts) ORDER BY ts DESC LIMIT 50;",
+          "rawSql": "SELECT ts AS \"time\", pid, relation, mode, granted, query FROM monitoring.lock_events WHERE $__timeFilter(ts) ORDER BY ts DESC LIMIT 50;",
           "format": "table"
         }
       ],
@@ -213,11 +250,12 @@
       "id": 8,
       "type": "table",
       "title": "Bloat des tables métier",
+      "description": "Estimation du bloat par table (pour les schémas 'metier' et 'referentiel').",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
       "targets": [
         {
           "refId": "A",
-          "rawSql": "SELECT ts AS \"time\", schema_name, table_name, dead_pct FROM monitoring.table_bloat WHERE $__timeFilter(ts) ORDER BY dead_pct DESC LIMIT 20;",
+          "rawSql": "SELECT ts AS \"time\", schema_name, table_name, est_rows, dead_rows, dead_pct FROM monitoring.table_bloat WHERE $__timeFilter(ts) ORDER BY dead_pct DESC LIMIT 20;",
           "format": "table"
         }
       ],
@@ -234,12 +272,13 @@
     {
       "id": 9,
       "type": "table",
-      "title": "Statut des tâches Airflow (dernier 100)",
+      "title": "Historique des tâches Airflow (dernier 100)",
+      "description": "Historique des exécutions de tâches pour le DAG dbm_platform_observability.",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
       "targets": [
         {
           "refId": "A",
-          "rawSql": "SELECT ts AS \"time\", dag_id, task_id, status, try_number FROM monitoring.task_status WHERE $__timeFilter(ts) AND dag_id = 'dbm_platform_observability' ORDER BY ts DESC LIMIT 100;",
+          "rawSql": "SELECT ts AS \"time\", dag_id, task_id, status, try_number, duration_seconds FROM monitoring.task_status WHERE $__timeFilter(ts) AND dag_id = 'dbm_platform_observability' ORDER BY ts DESC LIMIT 100;",
           "format": "table"
         }
       ],
@@ -247,7 +286,9 @@
         "showHeader": true
       },
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {
+          "unit": "s"
+        },
         "overrides": []
       }
     },
@@ -255,6 +296,7 @@
       "id": 11,
       "type": "stat",
       "title": "Tâches Airflow échouées (période)",
+      "description": "Nombre de tâches en statut 'failed' pour le DAG dbm_platform_observability sur la période sélectionnée.",
       "gridPos": { "h": 4, "w": 12, "x": 12, "y": 28 },
       "targets": [
         {
