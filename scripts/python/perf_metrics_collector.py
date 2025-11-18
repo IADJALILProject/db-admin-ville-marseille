@@ -33,7 +33,6 @@ if not logger.handlers:
     logger.addHandler(ch)
 
 
-# Répertoire où l’on stocke les artefacts de monitoring (overridable via env)
 MONITORING_DIR = Path(os.getenv("DBM_MONITORING_DIR", "/opt/airflow/monitoring"))
 METRICS_DIR = MONITORING_DIR / "metrics"
 METRICS_DIR.mkdir(parents=True, exist_ok=True)
@@ -242,7 +241,6 @@ def main() -> None:
     conn.autocommit = True
 
     try:
-        # Tailles des tables
         rows = fetch_table_sizes(conn)
         logger.info("Tailles récupérées pour %d tables.", len(rows))
 
@@ -252,7 +250,6 @@ def main() -> None:
         csv_path = write_csv(rows)
         logger.info("CSV écrit dans %s", csv_path)
 
-        # Activité WAL
         wal_row = fetch_wal_activity(conn)
         if wal_row:
             wal_lsn, wal_bytes_total, wal_segment_size = wal_row
@@ -272,12 +269,10 @@ def main() -> None:
         else:
             logger.warning("Impossible de récupérer la WAL activity.")
 
-        # Locks
         lock_rows = fetch_lock_events(conn)
         logger.info("Locks non accordés récupérés: %d", len(lock_rows))
         insert_lock_events(conn, lock_rows)
 
-        # Bloat
         bloat_rows = fetch_table_bloat(conn)
         logger.info("Bloat récupéré pour %d tables.", len(bloat_rows))
         insert_table_bloat(conn, bloat_rows)

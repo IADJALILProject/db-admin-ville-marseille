@@ -64,7 +64,6 @@ def collect_health_metrics(conn) -> dict:
 
     with conn.cursor() as cur:
 
-        # 1) Check disponibilité
         try:
             cur.execute("SELECT 1;")
             cur.fetchone()
@@ -73,10 +72,8 @@ def collect_health_metrics(conn) -> dict:
             logger.error("SELECT 1 failed: %s", e)
             return metrics
 
-        # 1-bis) Forcer une requête synthétique pour alimenter les stats
         force_synthetic_query(cur)
 
-        # 2) Sessions
         try:
             cur.execute("""
                 SELECT
@@ -91,7 +88,6 @@ def collect_health_metrics(conn) -> dict:
         except psycopg2.Error as e:
             logger.warning("pg_stat_activity error: %s", e)
 
-        # 3) Locks non accordés
         try:
             cur.execute("""
                 SELECT count(*)
@@ -103,14 +99,12 @@ def collect_health_metrics(conn) -> dict:
         except psycopg2.Error as e:
             logger.warning("pg_locks error: %s", e)
 
-        # 4) Taille DB
         try:
             cur.execute("SELECT pg_database_size(current_database());")
             metrics["db_size_bytes"] = cur.fetchone()[0]
         except psycopg2.Error as e:
             logger.warning("pg_database_size error: %s", e)
 
-        # 5) Temps moyen de requêtes
         try:
             cur.execute("""
                 SELECT
