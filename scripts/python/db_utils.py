@@ -1,5 +1,6 @@
 import logging
 import logging.config
+import os
 import subprocess
 import time
 from contextlib import contextmanager
@@ -10,10 +11,10 @@ from typing import Any, Dict, Optional
 import psycopg2
 import psycopg2.extras
 import yaml
-import os
 
-
-
+# ---------------------------------------------------------------------------
+# Chemins de base / config (utilisés par manage_schemas.py et co.)
+# ---------------------------------------------------------------------------
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 CONFIG_DIR = BASE_DIR / "config"
@@ -23,6 +24,7 @@ logger = logging.getLogger("db_admin")
 
 
 def _setup_logging() -> None:
+    """Initialise le logging à partir de logging.yml si présent."""
     if logger.handlers:
         return
     if LOG_CONFIG_FILE.exists():
@@ -41,20 +43,8 @@ def load_yaml(path: Path) -> Dict[str, Any]:
         return yaml.safe_load(f)
 
 
-def load_config_global() -> Dict[str, Any]:
-    return load_yaml(CONFIG_DIR / "config_global.yml")
-
-
 def load_config_postgres() -> Dict[str, Any]:
     return load_yaml(CONFIG_DIR / "config_postgres.yml")
-
-
-def load_config_mysql() -> Dict[str, Any]:
-    return load_yaml(CONFIG_DIR / "config_mysql.yml")
-
-
-def load_config_mssql() -> Dict[str, Any]:
-    return load_yaml(CONFIG_DIR / "config_mssql.yml")
 
 
 @dataclass
@@ -64,10 +54,10 @@ class DbConnectionInfo:
     database: str
     user: str
     password: str
-    driver: Optional[str] = None
 
 
 def get_postgres_conn_info() -> DbConnectionInfo:
+    """Connexion Postgres via fichier config_postgres.yml (usage host)."""
     cfg = load_config_postgres()["connection"]
     return DbConnectionInfo(
         host=cfg["host"],
@@ -80,6 +70,7 @@ def get_postgres_conn_info() -> DbConnectionInfo:
 
 @contextmanager
 def pg_connection(autocommit: bool = False):
+    """Context manager Postgres basé sur config_postgres.yml (usage host)."""
     info = get_postgres_conn_info()
     conn = psycopg2.connect(
         host=info.host,
@@ -96,6 +87,7 @@ def pg_connection(autocommit: bool = False):
 
 
 def execute_sql_file_postgres(path: Path, autocommit: bool = True) -> None:
+    """Exécute un fichier .sql sur Postgres (utilisé par manage_schemas.py)."""
     logger.info("Exécution SQL Postgres: %s", path)
     sql = path.read_text(encoding="utf-8")
     with pg_connection(autocommit=autocommit) as conn:
@@ -104,6 +96,7 @@ def execute_sql_file_postgres(path: Path, autocommit: bool = True) -> None:
 
 
 def run_subprocess(cmd: str, timeout: Optional[int] = None) -> subprocess.CompletedProcess:
+    """Helper générique pour lancer une commande shell avec logs."""
     logger.info("Exécution commande: %s", cmd)
     started = time.time()
     result = subprocess.run(
@@ -116,16 +109,49 @@ def run_subprocess(cmd: str, timeout: Optional[int] = None) -> subprocess.Comple
     )
     duration = time.time() - started
     if result.returncode != 0:
-        logger.error("Commande en erreur (%s s): %s\n%s", round(duration, 2), cmd, result.stderr.strip())
+        logger.error(
+            "Commande en erreur (%s s): %s\n%s",
+            round(duration, 2),
+            cmd,
+            result.stderr.strip(),
+        )
         raise RuntimeError(f"Echec commande {cmd}: {result.stderr}")
     logger.info("Commande terminée (%s s): %s", round(duration, 2), cmd)
     return result
 
+
+# ---------------------------------------------------------------------------
+# Connexion Postgres via variables d'environnement DBM_PG_*
+# (usage : scripts exécutés dans le conteneur Airflow)
+# ---------------------------------------------------------------------------
+
+PG_ENV_HOST = os.getenv("DBM_PG_HOST", "postgres")
+PG_ENV_PORT = int(os.getenv("DBM_PG_PORT", "5432"))
+PG_ENV_DATABASE = os.getenv("DBM_PG_DATABASE", "mairie")
+PG_ENV_USER = os.getenv("DBM_PG_USER", "db_admin")
+PG_ENV_PASSWORD = os.getenv("DBM_PG_PASSWORD", "CHANGE_ME")
+
+
 def get_pg_connection():
+    """
+    Connexion PostgreSQL basée sur les variables d'environnement DBM_PG_*.
+    Utilisée par health_checks.py, perf_metrics.py, backups, etc.
+    """
     return psycopg2.connect(
-        host=os.getenv("DB_HOST", "localhost"),
-        port=os.getenv("DB_PORT", "5432"),
-        dbname=os.getenv("DB_NAME", "mairie"),
-        user=os.getenv("DB_USER", "db_admin"),
-        password=os.getenv("DB_PASSWORD", "CHANGE_ME"),
+        host=PG_ENV_HOST,
+        port=PG_ENV_PORT,
+        dbname=PG_ENV_DATABASE,
+        user=PG_ENV_USER,
+        password=PG_ENV_PASSWORD,
     )
+
+def load_config_global() -> Dict[str, Any]:
+    """
+    Charge la configuration globale depuis config/config_global.yml.
+    Utilisé par les scripts comme backup_runner.py (répertoires, rétention, etc.).
+    """
+    path = CONFIG_DIR / "config_global.yml"
+    if not path.exists():
+        logger.warning("Fichier de configuration globale introuvable: %s", path)
+        return {}
+    return load_yaml(path)

@@ -31,7 +31,6 @@ DECLARE
     v_exists_cit   BOOLEAN;
     v_exists_srv   BOOLEAN;
 BEGIN
-    -- Resolve type RDV: code OU libellé (casse ignorée)
     SELECT t.code_type_rdv
       INTO v_code_rdv
       FROM referentiel.types_rdv t
@@ -44,7 +43,6 @@ BEGIN
             USING ERRCODE = 'foreign_key_violation';
     END IF;
 
-    -- Resolve canal: code OU libellé (casse ignorée)
     SELECT c.code_canal
       INTO v_code_canal
       FROM referentiel.canaux_contact c
@@ -57,7 +55,6 @@ BEGIN
             USING ERRCODE = 'foreign_key_violation';
     END IF;
 
-    -- Checks citoyen/service
     SELECT EXISTS(SELECT 1 FROM metier.citoyens WHERE citoyen_id = p_citoyen_id)
       INTO v_exists_cit;
     IF NOT v_exists_cit THEN

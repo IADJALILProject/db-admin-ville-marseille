@@ -12,6 +12,7 @@ Collecte des métriques de performance sur les tables PostgreSQL :
 
 import csv
 import logging
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import List, Tuple, Optional, Any
@@ -32,10 +33,11 @@ if not logger.handlers:
     logger.addHandler(ch)
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
+# Répertoire où l’on stocke les artefacts de monitoring (overridable via env)
 MONITORING_DIR = Path(os.getenv("DBM_MONITORING_DIR", "/opt/airflow/monitoring"))
 METRICS_DIR = MONITORING_DIR / "metrics"
 METRICS_DIR.mkdir(parents=True, exist_ok=True)
+
 
 def fetch_table_sizes(conn) -> List[Tuple[str, str, int]]:
     """
@@ -63,7 +65,11 @@ def fetch_table_sizes(conn) -> List[Tuple[str, str, int]]:
 def insert_table_sizes(conn, rows: List[Tuple[str, str, int]]) -> None:
     """
     Insère les tailles de tables dans monitoring.table_sizes.
+    La colonne ts est gérée par DEFAULT now().
     """
+    if not rows:
+        return
+
     with conn.cursor() as cur:
         for schema_name, table_name, size_bytes in rows:
             cur.execute(
@@ -91,9 +97,13 @@ def write_csv(rows: List[Tuple[str, str, int]]) -> Path:
 
     return csv_path
 
+
 def fetch_wal_activity(conn) -> Optional[Tuple[Any, Any, int]]:
     """
-    Retourne un tuple (wal_lsn, wal_bytes_total, wal_segment_size).
+    Retourne un tuple (wal_lsn, wal_bytes_total, wal_segment_size_bytes).
+
+    wal_segment_size est renvoyé en bytes via pg_size_bytes()
+    même si le paramètre est du type '16MB' dans PostgreSQL.
     """
     with conn.cursor() as cur:
         cur.execute(
@@ -101,14 +111,20 @@ def fetch_wal_activity(conn) -> Optional[Tuple[Any, Any, int]]:
             SELECT
               pg_current_wal_lsn() AS wal_lsn,
               pg_wal_lsn_diff(pg_current_wal_lsn(), '0/0') AS wal_bytes_total,
-              current_setting('wal_segment_size')::int AS wal_segment_size;
+              pg_size_bytes(current_setting('wal_segment_size')) AS wal_segment_size_bytes
             """
         )
         row = cur.fetchone()
     return row
 
 
-def insert_wal_activity(conn, wal_lsn, wal_bytes_total, wal_segment_size, notes: str = "") -> None:
+def insert_wal_activity(
+    conn,
+    wal_lsn: Any,
+    wal_bytes_total: Any,
+    wal_segment_size: int,
+    notes: str = "",
+) -> None:
     """
     Insère un snapshot de WAL dans monitoring.wal_activity.
     """
@@ -123,7 +139,7 @@ def insert_wal_activity(conn, wal_lsn, wal_bytes_total, wal_segment_size, notes:
         )
 
 
-def fetch_lock_events(conn) -> List[Tuple[int, str, str, str, bool, Optional[str]]]:
+def fetch_lock_events(conn) -> List[Tuple[int, str, Optional[str], str, bool, Optional[str]]]:
     """
     Retourne les locks non accordés (NOT granted) avec la requête associée.
     """
@@ -153,7 +169,7 @@ def fetch_lock_events(conn) -> List[Tuple[int, str, str, str, bool, Optional[str
     return rows
 
 
-def insert_lock_events(conn, rows: List[Tuple[int, str, str, str, bool, Optional[str]]]) -> None:
+def insert_lock_events(conn, rows: List[Tuple[int, str, Optional[str], str, bool, Optional[str]]]) -> None:
     """
     Insère les locks non accordés dans monitoring.lock_events.
     """
@@ -216,12 +232,17 @@ def insert_table_bloat(conn, rows: List[Tuple[str, str, int, int, float]]) -> No
                 (schema_name, table_name, est_rows, dead_rows, dead_pct),
             )
 
+
 def main() -> None:
-    logger.info("Démarrage de la collecte des métriques de performance (tailles des tables, WAL, locks, bloat)...")
+    logger.info(
+        "Démarrage de la collecte des métriques de performance "
+        "(tailles des tables, WAL, locks, bloat)..."
+    )
     conn = get_pg_connection()
     conn.autocommit = True
 
     try:
+        # Tailles des tables
         rows = fetch_table_sizes(conn)
         logger.info("Tailles récupérées pour %d tables.", len(rows))
 
@@ -231,10 +252,17 @@ def main() -> None:
         csv_path = write_csv(rows)
         logger.info("CSV écrit dans %s", csv_path)
 
+        # Activité WAL
         wal_row = fetch_wal_activity(conn)
         if wal_row:
             wal_lsn, wal_bytes_total, wal_segment_size = wal_row
-            insert_wal_activity(conn, wal_lsn, wal_bytes_total, wal_segment_size, notes="snapshot perf_metrics_collector")
+            insert_wal_activity(
+                conn,
+                wal_lsn,
+                wal_bytes_total,
+                wal_segment_size,
+                notes="snapshot perf_metrics_collector",
+            )
             logger.info(
                 "WAL activity insérée (lsn=%s, wal_bytes_total=%s, segment_size=%s)",
                 wal_lsn,
@@ -244,10 +272,12 @@ def main() -> None:
         else:
             logger.warning("Impossible de récupérer la WAL activity.")
 
+        # Locks
         lock_rows = fetch_lock_events(conn)
         logger.info("Locks non accordés récupérés: %d", len(lock_rows))
         insert_lock_events(conn, lock_rows)
 
+        # Bloat
         bloat_rows = fetch_table_bloat(conn)
         logger.info("Bloat récupéré pour %d tables.", len(bloat_rows))
         insert_table_bloat(conn, bloat_rows)

@@ -12,12 +12,36 @@ import psycopg2
 from airflow.exceptions import AirflowException
 from airflow.utils.context import Context
 
+# Racine du projet à l'intérieur du conteneur Airflow
 PROJECT_ROOT = Path("/opt/db-admin-ville-marseille")
 SCRIPTS_DIR = PROJECT_ROOT / "scripts" / "python"
 
-MONITORING_ROOT = Path(os.getenv("DBM_MONITORING_DIR", "/opt/airflow/monitoring"))
+# Racine du répertoire de monitoring (overridable par env)
+MONITORING_ROOT = Path(
+    os.getenv("DBM_MONITORING_DIR", "/opt/db-admin-ville-marseille/monitoring")
+)
 STATUS_DIR = MONITORING_ROOT / "status"
 STATUS_DIR.mkdir(parents=True, exist_ok=True)
+
+# Paramètres PostgreSQL utilisés pour stocker les statuts dans monitoring.task_status
+PG_HOST = os.getenv("DBM_PG_HOST", "postgres")  # Docker service "postgres"
+PG_PORT = int(os.getenv("DBM_PG_PORT", "5432"))
+PG_DATABASE = os.getenv("DBM_PG_DATABASE", "mairie")
+PG_USER = os.getenv("DBM_PG_USER", "db_admin")
+PG_PASSWORD = os.getenv("DBM_PG_PASSWORD", "CHANGE_ME")
+
+
+def _get_monitoring_pg_connection():
+    """
+    Connexion PostgreSQL pour la table monitoring.task_status.
+    """
+    return psycopg2.connect(
+        host=PG_HOST,
+        port=PG_PORT,
+        dbname=PG_DATABASE,
+        user=PG_USER,
+        password=PG_PASSWORD,
+    )
 
 
 def _write_status_json(
@@ -29,7 +53,12 @@ def _write_status_json(
     started_at: Optional[datetime] = None,
     finished_at: Optional[datetime] = None,
 ) -> None:
+    """
+    Écrit un fichier JSON de statut sur le disque et, si possible,
+    insère une ligne dans monitoring.task_status (best effort).
+    """
     ti = context["ti"]
+    log = getattr(ti, "log", None)
 
     if started_at is None:
         started_at = getattr(ti, "start_date", None)
@@ -57,44 +86,56 @@ def _write_status_json(
         "details": details,
     }
 
+    # ---- 1) Écriture fichier JSON sur disque ----
     STATUS_DIR.mkdir(parents=True, exist_ok=True)
     status_file = STATUS_DIR / f"{ti.dag_id}__{ti.task_id}.json"
     with status_file.open("w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
 
-    conn = psycopg2.connect(
-        host=os.getenv("DB_HOST", "localhost"),
-        port=os.getenv("DB_PORT", "5432"),
-        dbname=os.getenv("DB_NAME", "mairie"),
-        user=os.getenv("DB_USER", "db_admin"),
-        password=os.getenv("DB_PASSWORD", "CHANGE_ME"),
-    )
-    conn.autocommit = True
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            INSERT INTO monitoring.task_status
-              (dag_id, task_id, run_id, status, try_number,
-               started_at, finished_at, duration_seconds, details)
-            VALUES (%s, %s, %s, %s, %s,
-                    %s, %s, %s, %s::jsonb)
-            """,
-            (
-                ti.dag_id,
-                ti.task_id,
-                ti.run_id,
-                status,
-                ti.try_number,
-                started_at,
-                finished_at,
-                duration_seconds,
-                json.dumps(details),
-            ),
-        )
-    conn.close()
+    # ---- 2) Insertion en base dans monitoring.task_status (best effort) ----
+    try:
+        conn = _get_monitoring_pg_connection()
+        conn.autocommit = True
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO monitoring.task_status
+                  (dag_id, task_id, run_id, status, try_number,
+                   started_at, finished_at, duration_seconds, details)
+                VALUES (%s, %s, %s, %s, %s,
+                        %s, %s, %s, %s::jsonb)
+                """,
+                (
+                    ti.dag_id,
+                    ti.task_id,
+                    ti.run_id,
+                    status,
+                    ti.try_number,
+                    started_at,
+                    finished_at,
+                    duration_seconds,
+                    json.dumps(details),
+                ),
+            )
+        conn.close()
+    except Exception as exc:  # on ne fait pas échouer la task à cause du monitoring
+        if log:
+            log.warning(
+                "[%s] Impossible d'insérer le statut dans monitoring.task_status : %s",
+                label,
+                exc,
+            )
+        else:
+            print(
+                f"[{label}] WARNING: impossible d'insérer le statut en base : {exc}"
+            )
 
 
 def aggregate_status_files(**context: Context) -> None:
+    """
+    Agrège tous les fichiers JSON de status en un snapshot global
+    (platform_observability_snapshot.json).
+    """
     ti = context["ti"]
     log = ti.log
 
@@ -138,6 +179,10 @@ def run_dbm_script(
     task_label: Optional[str] = None,
     **context: Context,
 ) -> str:
+    """
+    Exécute un script Python du projet (scripts/python/...), capture stdout/stderr,
+    écrit un statut détaillé, et remonte une AirflowException en cas d’échec.
+    """
     ti = context["ti"]
     log = ti.log
 

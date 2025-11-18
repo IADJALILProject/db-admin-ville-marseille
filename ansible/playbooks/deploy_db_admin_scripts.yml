@@ -67,7 +67,6 @@
         -f "{{ item }}"
       loop: "{{ ddl_files_in_order }}"
 
-    # ⬇⬇ ICI on ne joue PLUS 11_insert_demo_from_csv.sql ⬇⬇
     - name: Apply DML scripts on {{ db_name }} (seed + reseed only)
       ansible.builtin.shell: >
         sudo -u postgres {{ psql_bin | default('/usr/bin/psql') }}

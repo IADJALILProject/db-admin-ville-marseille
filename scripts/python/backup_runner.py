@@ -17,16 +17,39 @@ def _ensure_dir(path: Path) -> None:
 
 
 def backup_postgres() -> Path:
-    global_cfg = load_config_global()
-    pg_cfg = load_config_postgres()
-    backup_cfg = global_cfg["backup"]["postgres"]
-    conn = pg_cfg["connection"]
+    """
+    Lance un backup PostgreSQL si la configuration le permet.
 
-    if not backup_cfg.get("enabled", True):
+    Si config_global.yml est absent ou ne contient pas 'backup.postgres',
+    on log un warning et on ne fait rien (retourne Path() vide).
+    """
+    global_cfg = load_config_global() or {}
+    pg_cfg = load_config_postgres() or {}
+
+    backup_root_cfg = global_cfg.get("backup", {})
+    pg_backup_cfg = backup_root_cfg.get("postgres")
+
+    if not pg_backup_cfg:
+        logger.warning(
+            "Aucune configuration 'backup.postgres' trouvée dans config_global.yml – "
+            "aucune sauvegarde PostgreSQL exécutée."
+        )
+        return Path()
+
+    conn = pg_cfg.get("connection")
+    if not conn:
+        logger.warning(
+            "Aucune section 'connection' dans la configuration PostgreSQL – "
+            "impossible de lancer le backup."
+        )
+        return Path()
+
+    if not pg_backup_cfg.get("enabled", True):
         logger.info("Backup PostgreSQL désactivé dans la configuration")
         return Path()
 
-    backup_dir = Path(backup_cfg["dir"])
+    # Répertoire de backup : soit celui de la config, soit un répertoire par défaut
+    backup_dir = Path(pg_backup_cfg.get("dir", str(BASE_DIR / "backups" / "postgres")))
     _ensure_dir(backup_dir)
 
     filename = f"{conn['database']}_full_{_timestamp()}.dump"
@@ -57,12 +80,28 @@ def rotate_backups(db_dir: Path, retention_days: int) -> None:
 
 
 def run_all_backups() -> None:
-    cfg = load_config_global()
-    backup_cfg = cfg["backup"]
+    """
+    Orchestration des backups.
 
+    Si la section 'backup' n'existe pas, on sort proprement sans lever d'erreur.
+    """
+    cfg = load_config_global() or {}
+
+    backup_cfg = cfg.get("backup")
+    if not backup_cfg:
+        logger.warning(
+            "Aucune section 'backup' trouvée dans config_global.yml – "
+            "aucun job de sauvegarde exécuté."
+        )
+        return
+
+    # Backup PostgreSQL
     pg_backup = backup_postgres()
     if pg_backup:
-        rotate_backups(Path(backup_cfg["postgres"]["dir"]), backup_cfg["postgres"]["retention_days"])
+        pg_cfg = backup_cfg.get("postgres", {})
+        backup_dir = Path(pg_cfg.get("dir", str(BASE_DIR / "backups" / "postgres")))
+        retention = int(pg_cfg.get("retention_days", 7))
+        rotate_backups(backup_dir, retention)
 
 
 def export_to_external_storage(source_dir: Path, external_dir: Path) -> None:
@@ -84,5 +123,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-

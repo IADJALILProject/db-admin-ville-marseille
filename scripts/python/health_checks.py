@@ -14,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 
 import psycopg2
-from psycopg2 import sql
+from psycopg2 import sql  
 
 from db_utils import get_pg_connection
 
@@ -32,7 +32,6 @@ if not logger.handlers:
     logger.addHandler(ch)
 
 
-# Tous les artefacts de monitoring côté Airflow (ou overridable)
 MONITORING_ROOT = Path(os.getenv("DBM_MONITORING_DIR", "/opt/airflow/monitoring"))
 REPORTS_DIR = MONITORING_ROOT / "reports"
 REPORTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -41,7 +40,7 @@ REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 def collect_health_metrics(conn) -> dict:
     """
     Collecte les métriques principales depuis Postgres.
-    Retourne un dict prêt à être inséré dans monitoring.db_health_status
+    Retourne un dict prêt à être inséré dans monitoring.db_health_status.
     """
     metrics = {
         "is_up": False,
@@ -53,7 +52,6 @@ def collect_health_metrics(conn) -> dict:
     }
 
     with conn.cursor() as cur:
-        # 1) DB UP ?
         try:
             cur.execute("SELECT 1;")
             cur.fetchone()
@@ -63,13 +61,12 @@ def collect_health_metrics(conn) -> dict:
             metrics["is_up"] = False
             return metrics
 
-        # 2) Sessions actives / en attente
         try:
             cur.execute(
                 """
                 SELECT
-                  count(*) FILTER (WHERE state = 'active')                       AS active_sessions,
-                  count(*) FILTER (WHERE wait_event IS NOT NULL)                 AS waiting_sessions
+                  count(*) FILTER (WHERE state = 'active')       AS active_sessions,
+                  count(*) FILTER (WHERE wait_event IS NOT NULL) AS waiting_sessions
                 FROM pg_stat_activity
                 WHERE datname = current_database();
                 """
@@ -80,7 +77,6 @@ def collect_health_metrics(conn) -> dict:
         except psycopg2.Error as e:
             logger.warning("Impossible de lire pg_stat_activity: %s", e)
 
-        # 3) Sessions bloquantes (approximation)
         try:
             cur.execute(
                 """
@@ -94,14 +90,12 @@ def collect_health_metrics(conn) -> dict:
         except psycopg2.Error as e:
             logger.warning("Impossible de lire pg_locks/pg_stat_activity: %s", e)
 
-        # 4) Taille de la base
         try:
             cur.execute("SELECT pg_database_size(current_database());")
             metrics["db_size_bytes"] = cur.fetchone()[0]
         except psycopg2.Error as e:
             logger.warning("Impossible de lire pg_database_size: %s", e)
 
-        # 5) Temps moyen de requête (approx via pg_stat_database)
         try:
             cur.execute(
                 """
@@ -125,7 +119,7 @@ def collect_health_metrics(conn) -> dict:
 
 def insert_health_row(conn, metrics: dict) -> None:
     """
-    Insère une ligne dans monitoring.db_health_status
+    Insère une ligne dans monitoring.db_health_status.
     """
     with conn.cursor() as cur:
         cur.execute(
@@ -148,7 +142,7 @@ def insert_health_row(conn, metrics: dict) -> None:
 
 def write_markdown_report(metrics: dict) -> None:
     """
-    Écrit un petit rapport Markdown dans monitoring/reports/rapport_health_status.md
+    Écrit un petit rapport Markdown dans monitoring/reports/rapport_health_status.md.
     """
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     md_path = REPORTS_DIR / "rapport_health_status.md"
@@ -156,7 +150,7 @@ def write_markdown_report(metrics: dict) -> None:
     lines = [
         f"# Health check PostgreSQL – {ts}",
         "",
-        f"- **Instance up** : {'✅ OUI' if metrics['is_up'] else '❌ NON'}",
+        f"- **Instance up** : {' OUI' if metrics['is_up'] else ' NON'}",
         f"- **Sessions actives** : {metrics['active_sessions']}",
         f"- **Sessions en attente** : {metrics['waiting_sessions']}",
         f"- **Sessions bloquantes** : {metrics['blocking_sessions']}",
