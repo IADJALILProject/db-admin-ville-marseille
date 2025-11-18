@@ -1,333 +1,789 @@
 {
-  "id": null,
-  "uid": "dbm-observability",
-  "title": "Supervision PostgreSQL & Airflow - Ville de Marseille",
-  "description": "Tableau de bord de supervision de la base 'mairie' (disponibilité, sessions, WAL, bloat, verrous, tâches Airflow).",
-  "timezone": "browser",
-  "schemaVersion": 38,
-  "version": 1,
-  "refresh": "30s",
-  "time": {
-    "from": "now-24h",
-    "to": "now"
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
   },
+  "description": "Tableau de bord de supervision de la base 'mairie' (disponibilité, sessions, WAL, bloat, verrous, tâches Airflow).",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
   "panels": [
     {
-      "id": 1,
-      "type": "stat",
-      "title": "Disponibilité PostgreSQL (période)",
       "description": "Dernier état de disponibilité de l’instance (100% si up, 0% si down).",
-      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
-      "targets": [
-        {
-          "refId": "A",
-          "rawSql": "SELECT ts AS \"time\", CASE WHEN is_up THEN 100 ELSE 0 END AS availability FROM monitoring.db_health_status WHERE $__timeFilter(ts) ORDER BY ts;",
-          "format": "time_series"
-        }
-      ],
-      "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "value",
-        "graphMode": "area"
-      },
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
+          "mappings": [],
+          "max": 100,
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "red", "value": 0 },
-              { "color": "orange", "value": 95 },
-              { "color": "green", "value": 99 }
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 95
+              },
+              {
+                "color": "green",
+                "value": 99
+              }
             ]
-          }
+          },
+          "unit": "percent"
         },
         "overrides": []
-      }
-    },
-    {
-      "id": 2,
-      "type": "timeseries",
-      "title": "Latence moyenne estimée des requêtes (ms)",
-      "description": "Temps moyen par transaction (approximation basée sur pg_stat_database).",
-      "gridPos": { "h": 8, "w": 9, "x": 6, "y": 0 },
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
       "targets": [
         {
-          "refId": "A",
-          "rawSql": "SELECT ts AS \"time\", avg_query_ms FROM monitoring.db_health_status WHERE $__timeFilter(ts) ORDER BY ts;",
-          "format": "time_series"
+          "format": "time_series",
+          "rawSql": "SELECT ts AS \"time\", CASE WHEN is_up THEN 100 ELSE 0 END AS availability FROM monitoring.db_health_status WHERE $__timeFilter(ts) ORDER BY ts;",
+          "refId": "A"
         }
       ],
+      "title": "Disponibilité PostgreSQL (période)",
+      "type": "stat"
+    },
+    {
+      "description": "Temps moyen par transaction (approximation basée sur pg_stat_database).",
       "fieldConfig": {
         "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
           "unit": "ms"
         },
         "overrides": []
       },
+      "gridPos": {
+        "h": 8,
+        "w": 9,
+        "x": 6,
+        "y": 0
+      },
+      "id": 2,
       "options": {
-        "legend": { "showLegend": true },
-        "tooltip": { "mode": "single" }
-      }
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "maxHeight": 600,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT ts AS \"time\", avg_query_ms FROM monitoring.db_health_status WHERE $__timeFilter(ts) ORDER BY ts;",
+          "refId": "A"
+        }
+      ],
+      "title": "Latence moyenne estimée des requêtes (ms)",
+      "type": "timeseries"
     },
     {
-      "id": 3,
-      "type": "timeseries",
-      "title": "Sessions actives",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mairie-postgres"
+      },
       "description": "Nombre de sessions en état 'active' sur la base courante.",
-      "gridPos": { "h": 8, "w": 9, "x": 15, "y": 0 },
-      "targets": [
-        {
-          "refId": "A",
-          "rawSql": "SELECT ts AS \"time\", active_sessions FROM monitoring.db_health_status WHERE $__timeFilter(ts) ORDER BY ts;",
-          "format": "time_series"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": { "showLegend": false },
-        "tooltip": { "mode": "single" }
-      }
-    },
-    {
-      "id": 10,
-      "type": "timeseries",
-      "title": "Sessions en attente et blocages",
-      "description": "Sessions en attente (wait_event non nul) et sessions bloquantes (locks non accordés).",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
-      "targets": [
-        {
-          "refId": "A",
-          "rawSql": "SELECT ts AS \"time\", waiting_sessions, blocking_sessions FROM monitoring.db_health_status WHERE $__timeFilter(ts) ORDER BY ts;",
-          "format": "time_series"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": { "showLegend": true },
-        "tooltip": { "mode": "multi" }
-      }
-    },
-    {
-      "id": 4,
-      "type": "stat",
-      "title": "Taille totale base applicative",
-      "description": "Taille maximale observée de la base (pg_database_size).",
-      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 4 },
-      "targets": [
-        {
-          "refId": "A",
-          "rawSql": "SELECT max(db_size_bytes) AS value FROM monitoring.db_health_status WHERE $__timeFilter(ts);",
-          "format": "table"
-        }
-      ],
-      "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "value",
-        "graphMode": "area"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "decbytes",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "orange", "value": 10737418240 },
-              { "color": "red", "value": 21474836480 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
             ]
-          }
+          },
+          "unit": "short"
         },
         "overrides": []
-      }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 9,
+        "x": 15,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "maxHeight": 600,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT ts AS \"time\", active_sessions FROM monitoring.db_health_status WHERE $__timeFilter(ts) ORDER BY ts;",
+          "refId": "A"
+        }
+      ],
+      "title": "Sessions actives",
+      "type": "barchart"
     },
     {
-      "id": 12,
-      "type": "timeseries",
-      "title": "Évolution de la taille de la base",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mairie-postgres"
+      },
+      "description": "Sessions en attente (wait_event non nul) et sessions bloquantes (locks non accordés).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 10,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "maxHeight": 600,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT ts AS \"time\", waiting_sessions, blocking_sessions FROM monitoring.db_health_status WHERE $__timeFilter(ts) ORDER BY ts;",
+          "refId": "A"
+        }
+      ],
+      "title": "Sessions en attente et blocages",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mairie-postgres"
+      },
       "description": "Taille de la base 'mairie' dans le temps.",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "decbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 12,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
       "targets": [
         {
-          "refId": "A",
+          "format": "time_series",
           "rawSql": "SELECT ts AS \"time\", db_size_bytes FROM monitoring.db_health_status WHERE $__timeFilter(ts) ORDER BY ts;",
-          "format": "time_series"
+          "refId": "A"
         }
       ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "decbytes"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": { "showLegend": false },
-        "tooltip": { "mode": "single" }
-      }
+      "title": "Évolution de la taille de la base",
+      "type": "stat"
     },
     {
-      "id": 6,
-      "type": "timeseries",
-      "title": "Activité WAL (octets cumulés)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mairie-postgres"
+      },
       "description": "Volume cumulé écrit dans le journal de transactions (WAL).",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "decbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "id": 6,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
       "targets": [
         {
-          "refId": "A",
+          "format": "time_series",
           "rawSql": "SELECT ts AS \"time\", wal_bytes_total FROM monitoring.wal_activity WHERE $__timeFilter(ts) ORDER BY ts;",
-          "format": "time_series"
+          "refId": "A"
         }
       ],
+      "title": "Activité WAL (octets cumulés)",
+      "type": "stat"
+    },
+    {
+      "description": "Taille maximale observée de la base (pg_database_size).",
       "fieldConfig": {
         "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 10737418240
+              },
+              {
+                "color": "red",
+                "value": 21474836480
+              }
+            ]
+          },
           "unit": "decbytes"
         },
         "overrides": []
       },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 16
+      },
+      "id": 4,
       "options": {
-        "legend": { "showLegend": false },
-        "tooltip": { "mode": "single" }
-      }
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT max(db_size_bytes) AS value FROM monitoring.db_health_status WHERE $__timeFilter(ts);",
+          "refId": "A"
+        }
+      ],
+      "title": "Taille totale base applicative",
+      "type": "stat"
     },
     {
-      "id": 5,
-      "type": "table",
-      "title": "Top tables par taille",
       "description": "20 plus grandes tables (toutes bases métiers confondues).",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
-      "targets": [
-        {
-          "refId": "A",
-          "rawSql": "SELECT ts AS \"time\", schema_name, table_name, size_bytes FROM monitoring.table_sizes WHERE $__timeFilter(ts) ORDER BY size_bytes DESC LIMIT 20;",
-          "format": "table"
-        }
-      ],
-      "options": {
-        "showHeader": true
-      },
       "fieldConfig": {
         "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
           "unit": "decbytes"
         },
         "overrides": []
-      }
-    },
-    {
-      "id": 7,
-      "type": "table",
-      "title": "Locks / contentions récentes",
-      "description": "Locks non accordés sur la période (source pg_locks / pg_stat_activity).",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
-      "targets": [
-        {
-          "refId": "A",
-          "rawSql": "SELECT ts AS \"time\", pid, relation, mode, granted, query FROM monitoring.lock_events WHERE $__timeFilter(ts) ORDER BY ts DESC LIMIT 50;",
-          "format": "table"
-        }
-      ],
-      "options": {
-        "showHeader": true
       },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      }
-    },
-    {
-      "id": 8,
-      "type": "table",
-      "title": "Bloat des tables métier",
-      "description": "Estimation du bloat par table (pour les schémas 'metier' et 'referentiel').",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
-      "targets": [
-        {
-          "refId": "A",
-          "rawSql": "SELECT ts AS \"time\", schema_name, table_name, est_rows, dead_rows, dead_pct FROM monitoring.table_bloat WHERE $__timeFilter(ts) ORDER BY dead_pct DESC LIMIT 20;",
-          "format": "table"
-        }
-      ],
-      "options": {
-        "showHeader": true
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 20
       },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent"
+      "id": 5,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
         },
-        "overrides": []
-      }
-    },
-    {
-      "id": 9,
-      "type": "table",
-      "title": "Historique des tâches Airflow (dernier 100)",
-      "description": "Historique des exécutions de tâches pour le DAG dbm_platform_observability.",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
-      "targets": [
-        {
-          "refId": "A",
-          "rawSql": "SELECT ts AS \"time\", dag_id, task_id, status, try_number, duration_seconds FROM monitoring.task_status WHERE $__timeFilter(ts) AND dag_id = 'dbm_platform_observability' ORDER BY ts DESC LIMIT 100;",
-          "format": "table"
-        }
-      ],
-      "options": {
         "showHeader": true
       },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT ts AS \"time\", schema_name, table_name, size_bytes FROM monitoring.table_sizes WHERE $__timeFilter(ts) ORDER BY size_bytes DESC LIMIT 20;",
+          "refId": "A"
+        }
+      ],
+      "title": "Top tables par taille",
+      "type": "table"
+    },
+    {
+      "description": "Historique des exécutions de tâches pour le DAG dbm_platform_observability.",
       "fieldConfig": {
         "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
           "unit": "s"
         },
         "overrides": []
-      }
-    },
-    {
-      "id": 11,
-      "type": "stat",
-      "title": "Tâches Airflow échouées (période)",
-      "description": "Nombre de tâches en statut 'failed' pour le DAG dbm_platform_observability sur la période sélectionnée.",
-      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 28 },
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "id": 9,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "11.0.0",
       "targets": [
         {
-          "refId": "A",
-          "rawSql": "SELECT now() AS \"time\", COALESCE(sum(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 0) AS failed_tasks FROM monitoring.task_status WHERE $__timeFilter(ts) AND dag_id = 'dbm_platform_observability';",
-          "format": "time_series"
+          "format": "table",
+          "rawSql": "SELECT ts AS \"time\", dag_id, task_id, status, try_number, duration_seconds FROM monitoring.task_status WHERE $__timeFilter(ts) AND dag_id = 'dbm_platform_observability' ORDER BY ts DESC LIMIT 100;",
+          "refId": "A"
         }
       ],
-      "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "value",
-        "graphMode": "area"
-      },
+      "title": "Historique des tâches Airflow (dernier 100)",
+      "type": "table"
+    },
+    {
+      "description": "Estimation du bloat par table (pour les schémas 'metier' et 'referentiel').",
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": 0 },
-              { "color": "red", "value": 1 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
             ]
-          }
+          },
+          "unit": "percent"
         },
         "overrides": []
-      }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 28
+      },
+      "id": 8,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT ts AS \"time\", schema_name, table_name, est_rows, dead_rows, dead_pct FROM monitoring.table_bloat WHERE $__timeFilter(ts) ORDER BY dead_pct DESC LIMIT 20;",
+          "refId": "A"
+        }
+      ],
+      "title": "Bloat des tables métier",
+      "type": "table"
+    },
+    {
+      "description": "Nombre de tâches en statut 'failed' pour le DAG dbm_platform_observability sur la période sélectionnée.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 12,
+        "x": 12,
+        "y": 36
+      },
+      "id": 11,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT now() AS \"time\", COALESCE(sum(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 0) AS failed_tasks FROM monitoring.task_status WHERE $__timeFilter(ts) AND dag_id = 'dbm_platform_observability';",
+          "refId": "A"
+        }
+      ],
+      "title": "Tâches Airflow échouées (période)",
+      "type": "stat"
     }
   ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": [],
   "templating": {
     "list": []
-  }
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timeRangeUpdatedDuringEditOrView": false,
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Supervision PostgreSQL & Airflow - Ville de Marseille",
+  "uid": "dbm-observability",
+  "version": 1,
+  "weekStart": ""
 }

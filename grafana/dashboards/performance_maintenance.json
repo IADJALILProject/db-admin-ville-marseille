@@ -1,0 +1,393 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Vue DBA pour tuning : requêtes lentes, I/O, index, locks, bloat, vacuum.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "panels": [
+    {
+      "description": "Top 20 des requêtes par temps moyen (ms).",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT\n  query,\n  calls,\n  round(total_time::numeric, 2) AS total_time_ms,\n  round((total_time / NULLIF(calls,0))::numeric, 2) AS avg_time_ms,\n  rows\nFROM pg_stat_statements\nWHERE dbid = (SELECT oid FROM pg_database WHERE datname = '$database')\nORDER BY avg_time_ms DESC\nLIMIT 20;",
+          "refId": "A"
+        }
+      ],
+      "title": "Top requêtes lentes (pg_stat_statements)",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mairie-postgres"
+      },
+      "description": "Tables avec le plus de lectures/écritures bloc.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 10
+      },
+      "id": 2,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "mairie-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  schemaname,\n  relname AS table_name,\n  heap_blks_read + heap_blks_hit + idx_blks_read + idx_blks_hit AS total_io,\n  heap_blks_read,\n  heap_blks_hit,\n  idx_blks_read,\n  idx_blks_hit\nFROM pg_statio_user_tables\nORDER BY total_io DESC\nLIMIT 20;\n",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Top tables par I/O (pg_statio_user_tables)",
+      "type": "table"
+    },
+    {
+      "description": "Top 20 des tables les plus volumineuses (données + index).",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "decbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 10
+      },
+      "id": 3,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT\n  n.nspname AS schema_name,\n  c.relname AS table_name,\n  pg_total_relation_size(c.oid) AS total_bytes\nFROM pg_class c\nJOIN pg_namespace n ON n.oid = c.relnamespace\nWHERE c.relkind = 'r'\nORDER BY total_bytes DESC\nLIMIT 20;",
+          "refId": "A"
+        }
+      ],
+      "title": "Top tables par taille",
+      "type": "table"
+    },
+    {
+      "description": "Index avec idx_scan = 0 ou très faible (hors PK/unique).",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
+      "id": 4,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT\n  s.schemaname,\n  s.relname AS table_name,\n  s.indexrelname AS index_name,\n  s.idx_scan,\n  pg_size_pretty(pg_relation_size(s.indexrelid)) AS index_size\nFROM pg_stat_user_indexes s\nJOIN pg_index i ON i.indexrelid = s.indexrelid\nWHERE s.idx_scan < 10\n  AND i.indisunique = false\n  AND i.indisprimary = false\nORDER BY s.idx_scan ASC, pg_relation_size(s.indexrelid) DESC\nLIMIT 50;",
+          "refId": "A"
+        }
+      ],
+      "title": "Index jamais / peu utilisés",
+      "type": "table"
+    },
+    {
+      "description": "Tables avec beaucoup de seq_scan vs idx_scan.",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 30
+      },
+      "id": 5,
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT\n  schemaname,\n  relname AS table_name,\n  seq_scan,\n  idx_scan,\n  n_tup_ins,\n  n_tup_upd,\n  n_tup_del,\n  n_live_tup,\n  n_dead_tup\nFROM pg_stat_user_tables\nWHERE seq_scan > 0\nORDER BY seq_scan DESC\nLIMIT 50;",
+          "refId": "A"
+        }
+      ],
+      "title": "Tables très scannées en séquentiel",
+      "type": "table"
+    },
+    {
+      "description": "Locks actuels avec infos requêtes et états.",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 40
+      },
+      "id": 6,
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT\n  now() AS \"time\",\n  a.datname,\n  a.pid,\n  a.usename,\n  a.application_name,\n  a.client_addr,\n  l.relation::regclass AS relation,\n  l.mode,\n  l.granted,\n  a.state,\n  a.query\nFROM pg_locks l\nJOIN pg_stat_activity a ON a.pid = l.pid\nWHERE a.datname = '$database'\nORDER BY l.granted ASC, a.query_start DESC;",
+          "refId": "A"
+        }
+      ],
+      "title": "Locks / contentions en cours",
+      "type": "table"
+    },
+    {
+      "description": "Infos de maintenance par table.",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 50
+      },
+      "id": 7,
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT\n  schemaname,\n  relname,\n  n_tup_ins,\n  n_tup_upd,\n  n_tup_del,\n  n_dead_tup,\n  last_vacuum,\n  last_autovacuum,\n  last_analyze,\n  last_autoanalyze\nFROM pg_stat_all_tables\nWHERE schemaname NOT IN ('pg_catalog', 'information_schema')\nORDER BY n_dead_tup DESC\nLIMIT 50;",
+          "refId": "A"
+        }
+      ],
+      "title": "Statut VACUUM / AUTOVACUUM",
+      "type": "table"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "mairie",
+          "value": "mairie"
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "mairie-postgres"
+        },
+        "definition": "",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Base",
+        "multi": false,
+        "name": "database",
+        "options": [],
+        "query": "SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY datname;",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timeRangeUpdatedDuringEditOrView": false,
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "PostgreSQL - Performance & Maintenance",
+  "uid": "pg-performance",
+  "version": 1,
+  "weekStart": ""
+}
