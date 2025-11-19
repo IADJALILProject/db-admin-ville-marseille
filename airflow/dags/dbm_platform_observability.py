@@ -28,6 +28,24 @@ with DAG(
     tags=["db-admin", "postgres", "observability", "monitoring"],
 ) as dag:
 
+    manage_schemas = PythonOperator(
+        task_id="manage_schemas",
+        python_callable=run_dbm_script,
+        op_kwargs={
+            "script_name": "manage_schemas.py",
+            "task_label": "manage_schemas",
+        },
+        doc_md="""
+        #### Gestion des schémas
+
+        Crée et initialise les schémas DDL/DML de la base `mairie` :
+        - Schémas: referentiel, metier
+        - Tables, indexes, contraintes
+        - Vues et fonctions PL/pgSQL
+        - Données de seed
+        """,
+    )
+
     health_checks_pre = PythonOperator(
         task_id="health_checks_pre",
         python_callable=run_dbm_script,
@@ -116,4 +134,4 @@ with DAG(
         """,
     )
 
-    health_checks_pre >> run_backup >> collect_perf_metrics >> run_security_audit >> generate_reports >> aggregate_status
+    manage_schemas >> health_checks_pre >> run_backup >> collect_perf_metrics >> run_security_audit >> generate_reports >> aggregate_status
