@@ -7,14 +7,10 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
-
 import psycopg2
 import psycopg2.extras
 import yaml
 
-# ---------------------------------------------------------------------------
-# Chemins de base / config (utilisés par manage_schemas.py et co.)
-# ---------------------------------------------------------------------------
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 CONFIG_DIR = BASE_DIR / "config"
@@ -22,20 +18,28 @@ LOG_CONFIG_FILE = CONFIG_DIR / "logging.yml"
 
 logger = logging.getLogger("db_admin")
 
-
 def _setup_logging() -> None:
     """Initialise le logging à partir de logging.yml si présent."""
     if logger.handlers:
         return
     if LOG_CONFIG_FILE.exists():
         with LOG_CONFIG_FILE.open("r", encoding="utf-8") as f:
-            cfg = yaml.safe_load(f)
+            cfg = yaml.safe_load(f) or {}
+
+        handlers = cfg.get("handlers", {})
+        for handler_cfg in handlers.values():
+            filename = handler_cfg.get("filename")
+            if filename:
+                path = Path(filename)
+                if not path.is_absolute():
+                    path = BASE_DIR / path
+                path.parent.mkdir(parents=True, exist_ok=True)
+                handler_cfg["filename"] = str(path)
+
         logging.config.dictConfig(cfg)
     else:
         logging.basicConfig(level=logging.INFO)
 
-
-_setup_logging()
 
 
 def load_yaml(path: Path) -> Dict[str, Any]:
