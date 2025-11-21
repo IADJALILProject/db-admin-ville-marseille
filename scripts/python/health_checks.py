@@ -42,15 +42,13 @@ def force_synthetic_query(cur):
     """
     try:
         cur.execute("""
-            SELECT
-                sum generate_series(1, 50000)
-            FROM generate_series(1, 50)
+            SELECT SUM(g)
+            FROM generate_series(1, 50000) AS g
         """)
         cur.fetchone()
         logger.info("Requête synthétique exécutée pour alimenter les stats.")
     except psycopg2.Error as e:
         logger.warning("Impossible d'exécuter la requête synthétique : %s", e)
-
 
 def collect_health_metrics(conn) -> dict:
     metrics = {

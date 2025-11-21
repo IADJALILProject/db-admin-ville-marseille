@@ -69,6 +69,8 @@ services:
       - ./airflow/dags:/opt/airflow/dags
       - ./airflow/logs:/opt/airflow/logs
       - ./airflow/plugins:/opt/airflow/plugins
+      - ./db/postgres:/opt/db-admin-ville-marseille/db/postgres
+      - ./config:/opt/db-admin-ville-marseille/config
       - ./scripts:/opt/db-admin-ville-marseille/scripts
       - ./monitoring/status:/opt/db-admin-ville-marseille/monitoring/status
       - ./monitoring/reports:/opt/db-admin-ville-marseille/monitoring/reports

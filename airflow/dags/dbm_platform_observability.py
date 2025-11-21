@@ -46,7 +46,7 @@ with DAG(
         """,
     )
 
-    health_checks_pre = PythonOperator(
+    health_checks = PythonOperator(
         task_id="health_checks_pre",
         python_callable=run_dbm_script,
         op_kwargs={
@@ -134,4 +134,4 @@ with DAG(
         """,
     )
 
-    manage_schemas >> health_checks_pre >> run_backup >> collect_perf_metrics >> run_security_audit >> generate_reports >> aggregate_status
+    manage_schemas >> health_checks >> run_backup >> collect_perf_metrics >> run_security_audit >> generate_reports >> aggregate_status

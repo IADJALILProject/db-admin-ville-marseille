@@ -1,5 +1,3 @@
-# Makefile – db-admin-ville-marseille
-
 PYTHON      ?= python3
 PIP         ?= $(PYTHON) -m pip
 VENV_DIR    ?= .venv
