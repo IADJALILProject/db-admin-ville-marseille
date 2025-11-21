@@ -3,51 +3,56 @@ name: CD - db-admin-ville-marseille
 on:
   push:
     branches: [ main ]
-  workflow_dispatch: {} 
+    paths:
+      - 'airflow/**'
+      - 'scripts/**'
+      - 'db/**'
+      - 'docker-compose.yml'
+      - '.github/workflows/cd.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: cd-db-admin-ville-marseille
+  cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: self-hosted   
 
-    env:
-      DBM_PG_HOST: localhost
-      DBM_PG_PORT: "15432"
-      DBM_PG_DATABASE: mairie
-      DBM_PG_USER: db_admin
-      DBM_PG_PASSWORD: CHANGE_ME
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Pull latest Docker images
+      - name: Show Git info (debug)
+        working-directory: ${{ github.workspace }}
         run: |
-          docker compose pull
+          echo "Workspace: $PWD"
+          git rev-parse --short HEAD
+          ls
 
-      - name: Recreate Docker stack
+      - name: Stop existing stack (if running)
+        working-directory: ${{ github.workspace }}
+        run: |
+          docker compose down || true
+
+      - name: Pull latest images (optional)
+        working-directory: ${{ github.workspace }}
+        run: |
+          docker compose pull || true
+
+      - name: Start / update stack
+        working-directory: ${{ github.workspace }}
         run: |
           docker compose up -d --remove-orphans
 
-      - name: Set up Python (pour les scripts de déploiement)
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install Python dependencies
+      - name: Show running services
+        working-directory: ${{ github.workspace }}
         run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          docker compose ps
 
-      - name: Apply database schemas (manage_schemas.py)
+      - name: Show Airflow DAGs directory (debug)
+        working-directory: ${{ github.workspace }}
         run: |
-          python scripts/python/manage_schemas.py
-
-      - name: Run pre health checks (health_checks.py --phase pre)
-        run: |
-          python scripts/python/health_checks.py --phase pre
-
-      - name: Quick check - last health rows (debug)
-        run: |
-          docker compose exec postgres psql \
-            -U db_admin -d mairie \
-            -c "SELECT * FROM monitoring.db_health_status ORDER BY ts DESC LIMIT 5;" || true
+          ls -R airflow/dags || echo "No DAGs directory found"
