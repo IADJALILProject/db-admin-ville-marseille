@@ -10,15 +10,40 @@ on:
       - 'docker-compose.yml'
       - 'ansible/**'
       - '.github/workflows/cd.yml'
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 concurrency:
   group: cd-db-admin-ville-marseille
   cancel-in-progress: true
 
+# 1) Job de validation Ansible (syntax check) sur runner GitHub classique
 jobs:
+  ansible_syntax:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Ansible
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible
+
+      - name: Ansible syntax check (deploy_docker_stack)
+        working-directory: ansible
+        run: |
+          ansible-playbook -i hosts.ini --syntax-check playbooks/deploy_docker_stack.yml
+
+  # 2) Job de déploiement réel sur ton runner self-hosted (WSL)
   deploy:
-    runs-on: self-hosted   
+    needs: ansible_syntax           # on ne déploie que si la syntaxe est OK
+    runs-on: self-hosted
 
     steps:
       - name: Checkout repository
@@ -44,12 +69,11 @@ jobs:
           pip install ansible
 
       - name: Déployer la stack via Ansible
-        working-directory: ${{ github.workspace }}
+        working-directory: ${{ github.workspace }}/ansible
         run: |
-          cd ansible
           ansible-playbook -i hosts.ini playbooks/deploy_docker_stack.yml
 
       - name: Vérifier les services Docker (debug)
         working-directory: ${{ github.workspace }}
         run: |
-          docker compose ps || true
+          docker compose ps
