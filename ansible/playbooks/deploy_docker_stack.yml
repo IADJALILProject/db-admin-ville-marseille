@@ -1,0 +1,30 @@
+---
+- hosts: db_servers
+  become: yes
+  vars:
+    project_dir: "{{ playbook_dir }}/../.."
+
+  tasks:
+    - name: Afficher le répertoire du projet (debug)
+      ansible.builtin.debug:
+        msg: "project_dir = {{ project_dir }}"
+
+    - name: Vérifier si Docker est déjà installé
+      ansible.builtin.command: docker --version
+      register: docker_check
+      changed_when: false
+
+    - name: Vérifier si docker compose est disponible
+      ansible.builtin.command: docker compose version
+      register: compose_check
+      changed_when: false
+
+    - name: Démarrer / mettre à jour la stack Docker Compose
+      ansible.builtin.shell: |
+        docker compose pull
+        docker compose up -d --remove-orphans
+      args:
+        chdir: "{{ project_dir }}"
+      when:
+        - docker_check.rc == 0
+        - compose_check.rc == 0

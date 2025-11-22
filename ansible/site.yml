@@ -1,10 +1,36 @@
----
-- hosts: db_servers
-  become: yes
-  roles:
-    - role: common
-    - role: postgres
+# site.yml
+- hosts: dbm_servers
+  become: true
+
+  vars:
+    project_dir: /opt/db-admin-ville-marseille
+
   tasks:
-    - import_playbook: ../playbooks/install_postgres.yml
-    - import_playbook: ../playbooks/deploy_db_admin_scripts.yml
-    - import_playbook: ../playbooks/hardening_db_servers.yml
+    - name: Installer Docker & docker compose plugin
+      ansible.builtin.package:
+        name:
+          - docker.io
+          - docker-compose-plugin
+        state: present
+
+    - name: Créer le répertoire du projet
+      ansible.builtin.file:
+        path: "{{ project_dir }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        mode: "0755"
+
+    - name: Déployer le docker-compose.yml
+      ansible.builtin.copy:
+        src: docker-compose.yml
+        dest: "{{ project_dir }}/docker-compose.yml"
+
+    - name: Déployer la configuration Prometheus
+      ansible.builtin.copy:
+        src: prometheus.yml
+        dest: "{{ project_dir }}/prometheus.yml"
+
+    - name: Lancer / mettre à jour la stack
+      community.docker.docker_compose:
+        project_src: "{{ project_dir }}"
+        state: present
