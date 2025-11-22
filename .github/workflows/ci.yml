@@ -44,14 +44,14 @@ jobs:
           # On attend jusqu'à ~60 secondes maximum
           for i in {1..20}; do
             if docker compose exec postgres pg_isready -U db_admin -d mairie > /dev/null 2>&1; then
-              echo "Postgres is ready "
+              echo "Postgres is ready"
               exit 0
             fi
             echo "Postgres not ready yet... ($i)"
             sleep 3
           done
 
-          echo "Postgres did not become ready in time "
+          echo "Postgres did not become ready in time"
           docker compose logs postgres
           exit 1
 
@@ -68,3 +68,25 @@ jobs:
           docker compose exec postgres psql \
             -U db_admin -d mairie \
             -c "SELECT * FROM monitoring.db_health_status ORDER BY ts DESC LIMIT 5;" || true
+
+  ansible_syntax:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Ansible
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible
+
+      - name: Ansible syntax check (deploy_docker_stack)
+        run: |
+          cd ansible
+          ansible-playbook -i hosts.ini playbook/deploy_docker_stack.yml --syntax-check

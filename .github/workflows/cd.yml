@@ -8,8 +8,9 @@ on:
       - 'scripts/**'
       - 'db/**'
       - 'docker-compose.yml'
+      - 'ansible/**'
       - '.github/workflows/cd.yml'
-  workflow_dispatch:
+  workflow_dispatch: {}
 
 concurrency:
   group: cd-db-admin-ville-marseille
@@ -32,27 +33,23 @@ jobs:
           git rev-parse --short HEAD
           ls
 
-      - name: Stop existing stack (if running)
-        working-directory: ${{ github.workspace }}
-        run: |
-          docker compose down || true
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-      - name: Pull latest images (optional)
-        working-directory: ${{ github.workspace }}
+      - name: Install Ansible
         run: |
-          docker compose pull || true
+          python -m pip install --upgrade pip
+          pip install ansible
 
-      - name: Start / update stack
+      - name: Déployer la stack via Ansible
         working-directory: ${{ github.workspace }}
         run: |
-          docker compose up -d --remove-orphans
+          cd ansible
+          ansible-playbook -i hosts.ini playbooks/deploy_docker_stack.yml
 
-      - name: Show running services
+      - name: Vérifier les services Docker (debug)
         working-directory: ${{ github.workspace }}
         run: |
-          docker compose ps
-
-      - name: Show Airflow DAGs directory (debug)
-        working-directory: ${{ github.workspace }}
-        run: |
-          ls -R airflow/dags || echo "No DAGs directory found"
+          docker compose ps || true
