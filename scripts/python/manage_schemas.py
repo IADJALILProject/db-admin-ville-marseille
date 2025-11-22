@@ -14,6 +14,7 @@ DDL_ORDER = [
     "06_views_reporting.sql",
     "07_functions_rdv.sql",
     "08_monitoring_schema.sql",
+    "09_dba_performance_views.sql"
 ]
 
 DML_ORDER = [

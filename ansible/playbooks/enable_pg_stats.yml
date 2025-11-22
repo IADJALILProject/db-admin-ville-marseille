@@ -2,7 +2,7 @@
 - name: Activer les extensions et statistiques PostgreSQL pour Grafana (DASHBOARD DBA)
   hosts: localhost
   connection: local
-  become: yes  # on devient root uniquement
+  become: yes 
 
   vars:
     postgres_conf_path: "/etc/postgresql/16/main/postgresql.conf"

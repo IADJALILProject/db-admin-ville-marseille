@@ -46,6 +46,8 @@ with DAG(
         """,
     )
 
+
+
     health_checks = PythonOperator(
         task_id="health_checks_pre",
         python_callable=run_dbm_script,
@@ -60,6 +62,16 @@ with DAG(
         Vérifie l'état de santé de la base Postgres `mairie` avant les opérations
         sensibles (backup, métriques, audit, reporting).
         """,
+    )
+
+    run_dba_workload = PythonOperator(
+        task_id="run_dba_workload",
+        python_callable=run_dbm_script,
+        op_kwargs={
+            "script_name": "generate_dba_workload.py",
+            "friendly_name": "dba_workload",
+        },
+        dag=dag,
     )
 
     run_backup = PythonOperator(
@@ -134,4 +146,4 @@ with DAG(
         """,
     )
 
-    manage_schemas >> health_checks >> run_backup >> collect_perf_metrics >> run_security_audit >> generate_reports >> aggregate_status
+    manage_schemas >> health_checks >> run_dba_workload >> run_backup >> collect_perf_metrics >> run_security_audit >> generate_reports >> aggregate_status
