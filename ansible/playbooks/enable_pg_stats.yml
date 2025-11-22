@@ -1,0 +1,64 @@
+---
+- name: Activer les extensions et statistiques PostgreSQL pour Grafana (DASHBOARD DBA)
+  hosts: localhost
+  connection: local
+  become: yes  # on devient root uniquement
+
+  vars:
+    postgres_conf_path: "/etc/postgresql/16/main/postgresql.conf"
+    db_name: "mairie"
+
+  tasks:
+
+    - name: Vérifier version PostgreSQL
+      debug:
+        msg: "postgresql.conf = {{ postgres_conf_path }}"
+
+    - name: Installer contrib (pg_stat_statements, pgstattuple, etc.)
+      apt:
+        name: postgresql-contrib
+        state: present
+        update_cache: yes
+
+    - name: Activer pg_stat_statements dans shared_preload_libraries
+      lineinfile:
+        path: "{{ postgres_conf_path }}"
+        regexp: "^shared_preload_libraries"
+        line: "shared_preload_libraries = 'pg_stat_statements'"
+      notify: Restart PostgreSQL
+
+    - name: Définir pg_stat_statements.max
+      lineinfile:
+        path: "{{ postgres_conf_path }}"
+        regexp: "^pg_stat_statements.max"
+        line: "pg_stat_statements.max = 10000"
+      notify: Restart PostgreSQL
+
+    - name: Définir pg_stat_statements.track
+      lineinfile:
+        path: "{{ postgres_conf_path }}"
+        regexp: "^pg_stat_statements.track"
+        line: "pg_stat_statements.track = all"
+      notify: Restart PostgreSQL
+
+    - name: S'assurer que PostgreSQL est démarré
+      service:
+        name: postgresql
+        state: started
+        enabled: yes
+
+    - name: Forcer les handlers (restart si conf modifiée)
+      meta: flush_handlers
+
+    - name: Créer extension pg_stat_statements dans la base
+      # On reste root, et on utilise sudo -u postgres dans la commande
+      command: sudo -u postgres psql -d "{{ db_name }}" -c "CREATE EXTENSION IF NOT EXISTS pg_stat_statements;"
+
+    - name: Créer extension pgstattuple dans la base
+      command: sudo -u postgres psql -d "{{ db_name }}" -c "CREATE EXTENSION IF NOT EXISTS pgstattuple;"
+
+  handlers:
+    - name: Restart PostgreSQL
+      service:
+        name: postgresql
+        state: restarted

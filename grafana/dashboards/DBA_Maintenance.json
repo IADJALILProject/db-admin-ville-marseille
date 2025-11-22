@@ -1,0 +1,398 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Vue DBA maintenance : VACUUM, ANALYZE, autovacuum, dead tuples, locks et autovacuum en cours.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mairie-postgres"
+      },
+      "description": "Nombre total de tuples morts sur la base (approx).",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1000000 },
+              { "color": "red", "value": 5000000 }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "showPercentChange": true,
+        "textMode": "auto"
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n  now() AS \"time\",\n  SUM(n_dead_tup) AS dead_tuples\nFROM pg_stat_all_tables\nWHERE schemaname NOT IN ('pg_catalog', 'information_schema');",
+          "refId": "A"
+        }
+      ],
+      "title": "Tuples morts (global) – pg_stat_all_tables",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mairie-postgres"
+      },
+      "description": "Table la plus en retard de VACUUM (en nombre de tuples morts).",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 500000 },
+              { "color": "red", "value": 2000000 }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 0 },
+      "id": 2,
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "/n_dead_tup/",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "showPercentChange": false,
+        "textMode": "value_and_name"
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT\n  schemaname || '.' || relname AS table_full,\n  n_dead_tup\nFROM pg_stat_all_tables\nWHERE schemaname NOT IN ('pg_catalog', 'information_schema')\nORDER BY n_dead_tup DESC\nLIMIT 1;",
+          "refId": "A"
+        }
+      ],
+      "title": "Table la plus en retard de VACUUM",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mairie-postgres"
+      },
+      "description": "Table la plus en retard d'ANALYZE (nombre de lignes modifiées depuis le dernier analyze).",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 500000 },
+              { "color": "red", "value": 2000000 }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 0 },
+      "id": 3,
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "/n_mod_since_analyze/",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "showPercentChange": false,
+        "textMode": "value_and_name"
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT\n  schemaname || '.' || relname AS table_full,\n  n_mod_since_analyze\nFROM pg_stat_all_tables\nWHERE schemaname NOT IN ('pg_catalog', 'information_schema')\nORDER BY n_mod_since_analyze DESC\nLIMIT 1;",
+          "refId": "A"
+        }
+      ],
+      "title": "Table la plus en retard d'ANALYZE",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mairie-postgres"
+      },
+      "description": "Tables à VACUUM prioritaire (beaucoup de tuples morts, autovacuum en retard).",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 500000 },
+              { "color": "red", "value": 2000000 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 4 },
+      "id": 4,
+      "options": {
+        "showHeader": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT\n  schemaname,\n  relname,\n  n_live_tup,\n  n_dead_tup,\n  round(100.0 * n_dead_tup / GREATEST(n_live_tup + n_dead_tup,1), 2) AS dead_pct,\n  last_vacuum,\n  last_autovacuum\nFROM pg_stat_all_tables\nWHERE schemaname NOT IN ('pg_catalog', 'information_schema')\nORDER BY n_dead_tup DESC\nLIMIT 50;",
+          "refId": "A"
+        }
+      ],
+      "title": "Tables à VACUUM prioritaire – pg_stat_all_tables",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mairie-postgres"
+      },
+      "description": "Tables à ANALYZE prioritaire (beaucoup de modifications depuis le dernier analyze).",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 500000 },
+              { "color": "red", "value": 2000000 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 13 },
+      "id": 5,
+      "options": {
+        "showHeader": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT\n  schemaname,\n  relname,\n  n_live_tup,\n  n_mod_since_analyze,\n  last_analyze,\n  last_autoanalyze\nFROM pg_stat_all_tables\nWHERE schemaname NOT IN ('pg_catalog', 'information_schema')\nORDER BY n_mod_since_analyze DESC\nLIMIT 50;",
+          "refId": "A"
+        }
+      ],
+      "title": "Tables à ANALYZE prioritaire – pg_stat_all_tables",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mairie-postgres"
+      },
+      "description": "Tables avec configuration AUTOVACUUM spécifique (ou désactivé).",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 22 },
+      "id": 6,
+      "options": {
+        "showHeader": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT\n  n.nspname AS schemaname,\n  c.relname,\n  pg_catalog.array_to_string(c.reloptions, ', ') AS reloptions\nFROM pg_class c\nJOIN pg_namespace n ON n.oid = c.relnamespace\nWHERE c.relkind = 'r'\n  AND c.reloptions IS NOT NULL\nORDER BY n.nspname, c.relname\nLIMIT 100;",
+          "refId": "A"
+        }
+      ],
+      "title": "Tables avec options AUTOVACUUM spécifiques – pg_class",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mairie-postgres"
+      },
+      "description": "Locks actuels sur la base (sessions actives + objets verrouillés).",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 100 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 31 },
+      "id": 7,
+      "options": {
+        "showHeader": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT\n  now() AS \"time\",\n  a.datname,\n  a.pid,\n  a.usename,\n  a.application_name,\n  a.client_addr,\n  l.relation::regclass AS relation,\n  l.mode,\n  l.granted,\n  a.state,\n  a.query\nFROM pg_locks l\nJOIN pg_stat_activity a ON a.pid = l.pid\nWHERE a.datname = '$database'\nORDER BY l.granted ASC, a.query_start DESC;",
+          "refId": "A"
+        }
+      ],
+      "title": "Locks / contentions en cours – pg_locks + pg_stat_activity",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mairie-postgres"
+      },
+      "description": "Autovacuum / VACUUM en cours sur les tables (progression).",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 90 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 40 },
+      "id": 8,
+      "options": {
+        "showHeader": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT\n  datname,\n  relid::regclass AS table_name,\n  phase,\n  heap_blks_total,\n  heap_blks_scanned,\n  round(100.0 * heap_blks_scanned / GREATEST(heap_blks_total,1), 2) AS progress_pct\nFROM pg_stat_progress_vacuum\nORDER BY progress_pct DESC;",
+          "refId": "A"
+        }
+      ],
+      "title": "Autovacuum / VACUUM en cours – pg_stat_progress_vacuum",
+      "type": "table"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["postgresql", "maintenance", "dba"],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "mairie",
+          "value": "mairie"
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "mairie-postgres"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Base",
+        "multi": false,
+        "name": "database",
+        "options": [],
+        "query": "SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY datname;",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "PostgreSQL - Maintenance (DBA)",
+  "uid": "pg-maint-dba",
+  "version": 1,
+  "weekStart": ""
+}

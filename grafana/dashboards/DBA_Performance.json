@@ -1,0 +1,409 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Vue DBA performance : charge, connexions, cache, requêtes lourdes et tables hot.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mairie-postgres"
+      },
+      "description": "TPS global (commit + rollback) sur la base sélectionnée.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 5000 }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "showPercentChange": true,
+        "textMode": "auto"
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n  now() AS \"time\",\n  (xact_commit + xact_rollback) AS total_tx\nFROM pg_stat_database\nWHERE datname = '$database';",
+          "refId": "A"
+        }
+      ],
+      "title": "TPS (transactions/s) – pg_stat_database",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mairie-postgres"
+      },
+      "description": "Ratio de hit cache global (blks_hit / (blks_hit + blks_read)).",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 97 },
+              { "color": "green", "value": 99 }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 0 },
+      "id": 2,
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "showPercentChange": false,
+        "textMode": "auto"
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n  now() AS \"time\",\n  blks_hit * 100.0 / NULLIF(blks_hit + blks_read, 0) AS cache_hit_ratio\nFROM pg_stat_database\nWHERE datname = '$database';",
+          "refId": "A"
+        }
+      ],
+      "title": "Cache hit ratio (%) – pg_stat_database",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mairie-postgres"
+      },
+      "description": "Nombre de connexions utilisées vs max_connections.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 70 },
+              { "color": "red", "value": 90 }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 0 },
+      "id": 3,
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "showPercentChange": false,
+        "textMode": "auto"
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n  now() AS \"time\",\n  (SELECT COUNT(*) FROM pg_stat_activity WHERE datname = '$database')::float * 100.0 / current_setting('max_connections')::float AS conn_utilization\n;",
+          "refId": "A"
+        }
+      ],
+      "title": "Utilisation connexions (%) – pg_stat_activity",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mairie-postgres"
+      },
+      "description": "Répartition des sessions par wait_event pour identifier les goulots (locks, I/O, LWLock…).",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 50 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "id": 4,
+      "options": {
+        "showHeader": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT\n  COALESCE(wait_event_type || '.' || wait_event, 'NO_WAIT') AS wait_event,\n  COUNT(*) AS sessions\nFROM pg_stat_activity\nWHERE datname = '$database'\nGROUP BY 1\nORDER BY sessions DESC;",
+          "refId": "A"
+        }
+      ],
+      "title": "Sessions par wait_event – pg_stat_activity",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mairie-postgres"
+      },
+      "description": "Top requêtes les plus lentes (temps moyen en ms) selon pg_stat_statements.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 80 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "id": 5,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT\n  query,\n  calls,\n  round(total_time::numeric, 2) AS total_time_ms,\n  round((total_time / NULLIF(calls,0))::numeric, 2) AS avg_time_ms,\n  rows\nFROM pg_stat_statements\nWHERE dbid = (SELECT oid FROM pg_database WHERE datname = '$database')\nORDER BY avg_time_ms DESC\nLIMIT 20;",
+          "refId": "A"
+        }
+      ],
+      "title": "Top requêtes par temps moyen – pg_stat_statements",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mairie-postgres"
+      },
+      "description": "Top requêtes les plus consommatrices d'I/O (blocs lus).",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 100000 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 12 },
+      "id": 6,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT\n  query,\n  calls,\n  shared_blks_read + local_blks_read AS blocks_read,\n  shared_blks_dirtied + local_blks_dirtied AS blocks_dirtied,\n  temp_blks_written\nFROM pg_stat_statements\nWHERE dbid = (SELECT oid FROM pg_database WHERE datname = '$database')\nORDER BY blocks_read DESC\nLIMIT 20;",
+          "refId": "A"
+        }
+      ],
+      "title": "Top requêtes par I/O – pg_stat_statements",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mairie-postgres"
+      },
+      "description": "Tables avec beaucoup de scans séquentiels par rapport aux scans index (potentiel manque d'index).",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 10000 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 21 },
+      "id": 7,
+      "options": {
+        "showHeader": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT\n  schemaname,\n  relname AS table_name,\n  seq_scan,\n  idx_scan,\n  CASE WHEN seq_scan > 0 THEN round((seq_scan::numeric / GREATEST(idx_scan,1))::numeric, 2) ELSE 0 END AS seq_idx_ratio,\n  n_live_tup\nFROM pg_stat_user_tables\nWHERE seq_scan > 0\nORDER BY seq_scan DESC\nLIMIT 50;",
+          "refId": "A"
+        }
+      ],
+      "title": "Tables à fort seq_scan – pg_stat_user_tables",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mairie-postgres"
+      },
+      "description": "Tables qui génèrent le plus d'I/O (lecture + cache).",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 100000 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 30 },
+      "id": 8,
+      "options": {
+        "showHeader": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT\n  schemaname,\n  relname AS table_name,\n  heap_blks_read + heap_blks_hit + idx_blks_read + idx_blks_hit AS total_io,\n  heap_blks_read,\n  heap_blks_hit,\n  idx_blks_read,\n  idx_blks_hit\nFROM pg_statio_user_tables\nORDER BY total_io DESC\nLIMIT 20;",
+          "refId": "A"
+        }
+      ],
+      "title": "Top tables par I/O – pg_statio_user_tables",
+      "type": "table"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["postgresql", "performance", "dba"],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "mairie",
+          "value": "mairie"
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "mairie-postgres"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Base",
+        "multi": false,
+        "name": "database",
+        "options": [],
+        "query": "SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY datname;",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "PostgreSQL - Performance (DBA)",
+  "uid": "pg-perf-dba",
+  "version": 1,
+  "weekStart": ""
+}
