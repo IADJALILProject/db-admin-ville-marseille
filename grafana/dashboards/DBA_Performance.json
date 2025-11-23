@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "Vue DBA performance : charge, cache, connexions, requêtes lourdes et tables hot.",
+  "description": "Vue DBA performance : charge, cache, connexions, requêtes lourdes, tables hot, I/O et wait events.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
@@ -33,8 +33,14 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "red", "value": 5000 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 5000
+              }
             ]
           },
           "unit": "none"
@@ -54,7 +60,9 @@
         "justifyMode": "auto",
         "orientation": "horizontal",
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": "",
           "values": false
         },
@@ -85,9 +93,18 @@
           "thresholds": {
             "mode": "percentage",
             "steps": [
-              { "color": "red", "value": null },
-              { "color": "orange", "value": 97 },
-              { "color": "green", "value": 99 }
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 97
+              },
+              {
+                "color": "green",
+                "value": 99
+              }
             ]
           },
           "unit": "percent"
@@ -107,7 +124,9 @@
         "justifyMode": "auto",
         "orientation": "horizontal",
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": "",
           "values": false
         },
@@ -138,9 +157,18 @@
           "thresholds": {
             "mode": "percentage",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "orange", "value": 70 },
-              { "color": "red", "value": 90 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
             ]
           },
           "unit": "percent"
@@ -160,7 +188,9 @@
         "justifyMode": "auto",
         "orientation": "horizontal",
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": "",
           "values": false
         },
@@ -172,7 +202,7 @@
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "SELECT\n  now() AS \"time\",\n  (SELECT COUNT(*) FROM pg_stat_activity WHERE datname = '$database')::float * 100.0 / current_setting('max_connections')::float AS \"Connexions %\";",
+          "rawSql": "SELECT\n  now() AS \"time\",\n  (SELECT COUNT(*) FROM pg_stat_activity WHERE datname = '$database')::float\n       * 100.0 / current_setting('max_connections')::float AS \"Connexions %\";",
           "refId": "A"
         }
       ],
@@ -184,7 +214,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "mairie-postgres"
       },
-      "description": "Top requêtes les plus lentes (temps moyen en ms) via la vue dba.top_queries.",
+      "description": "Top requêtes les plus lentes (temps moyen ms) via la vue dba.top_queries.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -198,15 +228,21 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "red", "value": 80 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
             ]
           }
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 10,
+        "h": 8,
         "w": 24,
         "x": 0,
         "y": 4
@@ -217,7 +253,9 @@
         "footer": {
           "countRows": false,
           "fields": "",
-          "reducer": ["sum"],
+          "reducer": [
+            "sum"
+          ],
           "show": false
         },
         "showHeader": true
@@ -225,9 +263,32 @@
       "pluginVersion": "11.0.0",
       "targets": [
         {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "mairie-postgres"
+          },
+          "editorMode": "code",
           "format": "table",
-          "rawSql": "SELECT\n  query         AS \"Requête\",\n  calls         AS \"Appels\",\n  total_time_ms AS \"Temps total (ms)\",\n  avg_time_ms   AS \"Temps moyen (ms)\",\n  rows          AS \"Lignes renvoyées\"\nFROM dba.top_queries\nLIMIT 20;",
-          "refId": "A"
+          "rawQuery": true,
+          "rawSql": "SELECT\n  query                                         AS \"Requête\",\n  calls                                         AS \"Appels\",\n  round(total_exec_time::numeric, 2)            AS \"Temps total (ms)\",\n  round(mean_exec_time::numeric, 2)             AS \"Temps moyen (ms)\",\n  rows                                          AS \"Lignes renvoyées\"\nFROM pg_stat_statements\nWHERE dbid = (SELECT oid FROM pg_database WHERE datname = '$database')\nORDER BY \"Temps moyen (ms)\" DESC\nLIMIT 20;\n",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
         }
       ],
       "title": "Top requêtes lentes – dba.top_queries",
@@ -252,18 +313,24 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "red", "value": 10000 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 10000
+              }
             ]
           }
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 10,
+        "h": 8,
         "w": 24,
         "x": 0,
-        "y": 14
+        "y": 12
       },
       "id": 5,
       "options": {
@@ -271,7 +338,9 @@
         "footer": {
           "countRows": false,
           "fields": "",
-          "reducer": ["sum"],
+          "reducer": [
+            "sum"
+          ],
           "show": false
         },
         "showHeader": true
@@ -306,18 +375,24 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "red", "value": 10 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
             ]
           }
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 10,
+        "h": 8,
         "w": 24,
         "x": 0,
-        "y": 24
+        "y": 20
       },
       "id": 6,
       "options": {
@@ -325,7 +400,9 @@
         "footer": {
           "countRows": false,
           "fields": "",
-          "reducer": ["sum"],
+          "reducer": [
+            "sum"
+          ],
           "show": false
         },
         "showHeader": true
@@ -340,16 +417,144 @@
       ],
       "title": "Index peu utilisés – dba.unused_indexes",
       "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mairie-postgres"
+      },
+      "description": "Top requêtes les plus consommatrices d'I/O (lecture disque vs cache).",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 100000
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 28
+      },
+      "id": 7,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT\n  query          AS \"Requête\",\n  calls          AS \"Appels\",\n  blks_read      AS \"Blocs lus (disque)\",\n  blks_hit       AS \"Blocs hit (cache)\",\n  total_io       AS \"Total I/O\",\n  read_ratio_pct AS \"Ratio lecture (%)\",\n  hit_ratio_pct  AS \"Ratio hit-cache (%)\"\nFROM dba.top_io_queries\nLIMIT 20;",
+          "refId": "A"
+        }
+      ],
+      "title": "Top requêtes par I/O – dba.top_io_queries",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mairie-postgres"
+      },
+      "description": "Répartition des sessions par type de wait event (Lock, LWLock, IO, Client, CPU…).",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 50
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 36
+      },
+      "id": 8,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT\n  COALESCE(wait_event_type, 'NONE') AS \"Type d'attente\",\n  COALESCE(wait_event, 'NO_WAIT')   AS \"Wait event\",\n  COUNT(*)                          AS \"Sessions\"\nFROM pg_stat_activity\nWHERE datname = '$database'\nGROUP BY 1,2\nORDER BY \"Sessions\" DESC;",
+          "refId": "A"
+        }
+      ],
+      "title": "Wait events – pg_stat_activity",
+      "type": "table"
     }
   ],
   "refresh": "30s",
   "schemaVersion": 39,
-  "tags": ["postgresql", "performance", "dba"],
+  "tags": [
+    "postgresql",
+    "performance",
+    "dba"
+  ],
   "templating": {
     "list": [
       {
         "current": {
-          "selected": true,
+          "selected": false,
           "text": "mairie",
           "value": "mairie"
         },
@@ -377,10 +582,11 @@
     "from": "now-24h",
     "to": "now"
   },
+  "timeRangeUpdatedDuringEditOrView": false,
   "timepicker": {},
   "timezone": "browser",
   "title": "PostgreSQL - Performance (DBA)",
   "uid": "pg-perf-dba",
-  "version": 2,
+  "version": 1,
   "weekStart": ""
 }

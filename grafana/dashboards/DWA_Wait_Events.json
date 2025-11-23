@@ -1,0 +1,206 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Vue DBA dédiée aux wait events : Lock, LWLock, IO, ClientRead/Write, CPU.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mairie-postgres"
+      },
+      "description": "Nombre total de sessions actives (non idle) sur la base.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 50 }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n  now() AS \"time\",\n  COUNT(*) AS \"Sessions actives\"\nFROM pg_stat_activity\nWHERE datname = '$database'\n  AND state <> 'idle';",
+          "refId": "A"
+        }
+      ],
+      "title": "Sessions actives – pg_stat_activity",
+      "type": "stat"
+    },
+
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mairie-postgres"
+      },
+      "description": "Répartition des sessions par grande catégorie de wait event (Lock, LWLock, IO, Client…).",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 50 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 4 },
+      "id": 2,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT\n  COALESCE(wait_event_type, 'NONE') AS \"Type d'attente\",\n  COALESCE(wait_event, 'NO_WAIT')   AS \"Wait event\",\n  COUNT(*)                          AS \"Sessions\"\nFROM pg_stat_activity\nWHERE datname = '$database'\nGROUP BY 1,2\nORDER BY \"Sessions\" DESC;",
+          "refId": "A"
+        }
+      ],
+      "title": "Wait events – répartition sessions",
+      "type": "table"
+    },
+
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "mairie-postgres"
+      },
+      "description": "Détail des sessions en attente : PID, utilisateur, type d'attente, durée, requête.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 12 },
+      "id": 3,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT\n  now() AS \"time\",\n  datname                    AS \"Base\",\n  pid                        AS \"PID\",\n  usename                    AS \"Utilisateur\",\n  application_name           AS \"Application\",\n  client_addr                AS \"Client\",\n  state                      AS \"État\",\n  wait_event_type            AS \"Type d'attente\",\n  wait_event                 AS \"Wait event\",\n  query_start                AS \"Début requête\",\n  now() - query_start        AS \"Durée\",\n  LEFT(query, 200)           AS \"Requête\"\nFROM pg_stat_activity\nWHERE datname = '$database'\n  AND wait_event IS NOT NULL\nORDER BY \"Durée\" DESC;",
+          "refId": "A"
+        }
+      ],
+      "title": "Sessions en attente – détail",
+      "type": "table"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["postgresql", "wait_events", "dba"],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "mairie",
+          "value": "mairie"
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "mairie-postgres"
+        },
+        "definition": "",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Base",
+        "multi": false,
+        "name": "database",
+        "options": [],
+        "query": "SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY datname;",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      }
+    ]
+  },
+  "time": { "from": "now-24h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "PostgreSQL - Wait Events (DBA)",
+  "uid": "pg-wait-dba",
+  "version": 1,
+  "weekStart": ""
+}
