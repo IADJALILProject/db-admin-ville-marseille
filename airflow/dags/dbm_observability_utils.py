@@ -12,7 +12,6 @@ import psycopg2
 from airflow.exceptions import AirflowException
 from airflow.utils.context import Context
 
-# Racine du projet à l'intérieur du conteneur Airflow
 PROJECT_ROOT = Path("/opt/db-admin-ville-marseille")
 SCRIPTS_DIR = PROJECT_ROOT / "scripts" / "python"
 
